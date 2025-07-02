@@ -242,3 +242,19 @@ exports.deleteProductReview = (req, res) => {
     });
 };
 
+// Product search for autocomplete
+exports.searchItems = (req, res) => {
+    const q = req.query.q ? req.query.q.trim() : '';
+    if (!q || q.length < 2) {
+        return res.json({ items: [] });
+    }
+    const sql = `SELECT id, name FROM products WHERE name LIKE ? ORDER BY name LIMIT 10`;
+    connection.execute(sql, [`%${q}%`], (err, rows) => {
+        if (err) {
+            console.log(err);
+            return res.status(500).json({ error: 'Database error', details: err });
+        }
+        res.json({ items: rows });
+    });
+};
+

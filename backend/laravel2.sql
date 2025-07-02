@@ -252,6 +252,8 @@ CREATE TABLE `users` (
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `role` varchar(255) NOT NULL DEFAULT 'customer',
   `remember_token` varchar(100) DEFAULT NULL,
+  `verification_token` varchar(255) DEFAULT NULL,
+  `api_token` varchar(255) DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT NULL,
   `updated_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -422,6 +424,26 @@ ALTER TABLE `transactions`
 ALTER TABLE `transaction_items`
   ADD CONSTRAINT `transaction_items_product_id_foreign` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `transaction_items_transaction_id_foreign` FOREIGN KEY (`transaction_id`) REFERENCES `transactions` (`id`) ON DELETE CASCADE;
+
+-- --------------------------------------------------------
+
+-- Table structure for table `user_tokens`
+
+CREATE TABLE `user_tokens` (
+  `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` bigint(20) UNSIGNED NOT NULL,
+  `token` varchar(255) NOT NULL,
+  `type` varchar(50) NOT NULL, -- e.g. 'verification', 'auth', 'api', 'reset', etc.
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` timestamp NULL DEFAULT NULL,
+  `used_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `user_tokens_user_id_foreign` (`user_id`),
+  CONSTRAINT `user_tokens_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- After user verification, you can update the `used_at` column to mark the token as used.
+
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

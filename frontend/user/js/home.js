@@ -156,20 +156,62 @@ function loadProductsWithFilters() {
                         $.get(`${API_BASE}/product/${id}/reviews`, function (data) {
                             let html = '<h5>Reviews</h5>';
                             if (!data.reviews || !data.reviews.length) {
-                                html += '<div class="alert alert-info">No reviews yet.</div>';
+                                let userId = getUserId();
+                                // If user can review, show a custom message and the review form
+                                if (token && canReview) {
+                                    html += '<div class="alert alert-info">You have not reviewed this product yet. <b>Review this product because you already bought it and your order is completed.</b></div>';
+                                    // Show the add review form directly
+                                    $('#modal-add-review-section').show();
+                                } else {
+                                    html += '<div class="alert alert-info">No reviews yet.</div>';
+                                    $('#modal-add-review-section').hide();
+                                }
                             } else {
+                                // Hide the add review form if user already reviewed
+                                if (data.reviews.some(r => r.user_id == getUserId())) {
+                                    $('#modal-add-review-section').hide();
+                                } else if (token && canReview) {
+                                    $('#modal-add-review-section').show();
+                                }
                                 let userId = getUserId();
                                 data.reviews.forEach(r => {
                                     let canEdit = userId && r.user_id && userId == r.user_id;
-                                    html += `<div class="card review-card mb-2"><div class="card-body p-2">
-                                        <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
-                                        <div>${r.comment}</div>
-                                        <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
-                                        ${canEdit ? `
-                                            <button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="${r.id}" data-rating="${r.rating}" data-comment="${encodeURIComponent(r.comment)}">Edit</button>
-                                            <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="${r.id}">Delete</button>
-                                        ` : ''}
-                                    </div></div>`;
+                                    if (canEdit && r.editing) {
+                                        html += `<div class='card review-card mb-2' data-review-id='${r.id}'>
+                                            <div class='card-body'>
+                                                <form class='edit-review-inline-form'>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-rating-${r.id}' class='mb-0'>Rating</label>
+                                                        <select id='edit-inline-rating-${r.id}' class='form-control form-control-sm' required>
+                                                            <option value=''>Select</option>
+                                                            <option value='5' ${r.rating==5?'selected':''}>5 - Excellent</option>
+                                                            <option value='4' ${r.rating==4?'selected':''}>4 - Good</option>
+                                                            <option value='3' ${r.rating==3?'selected':''}>3 - Average</option>
+                                                            <option value='2' ${r.rating==2?'selected':''}>2 - Poor</option>
+                                                            <option value='1' ${r.rating==1?'selected':''}>1 - Terrible</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-comment-${r.id}' class='mb-0'>Comment</label>
+                                                        <textarea id='edit-inline-comment-${r.id}' class='form-control form-control-sm' rows='2' required>${r.comment}</textarea>
+                                                    </div>
+                                                    <button type='submit' class='btn btn-sm btn-primary'>Save</button>
+                                                    <button type='button' class='btn btn-sm btn-secondary cancel-edit-inline-btn ml-2'>Cancel</button>
+                                                    <div class='edit-inline-message mt-2'></div>
+                                                </form>
+                                            </div>
+                                        </div>`;
+                                    } else {
+                                        html += `<div class="card review-card mb-2"><div class="card-body p-2">
+                                            <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+                                            <div>${r.comment}</div>
+                                            <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
+                                            ${canEdit ? `
+                                                <button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="${r.id}">Edit</button>
+                                                <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="${r.id}">Delete</button>
+                                            ` : ''}
+                                        </div></div>`;
+                                    }
                                 });
 // Handle delete review in modal
 $(document).on('click', '.delete-review-btn', function () {
@@ -189,71 +231,98 @@ $(document).on('click', '.delete-review-btn', function () {
     });
 });
 
-// Handle edit review in modal
+// Inline edit review in modal
 $(document).on('click', '.edit-review-btn', function () {
     const reviewId = $(this).data('review-id');
-    const rating = $(this).data('rating');
-    const comment = decodeURIComponent($(this).data('comment'));
-    // Show a modal for editing
-    const editModalHtml = `
-    <div class="modal fade" id="editReviewModal" tabindex="-1" role="dialog" aria-labelledby="editReviewModalLabel" aria-hidden="true">
-      <div class="modal-dialog" role="document">
-        <div class="modal-content">
-          <div class="modal-header">
-            <h5 class="modal-title">Edit Review</h5>
-            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-              <span aria-hidden="true">&times;</span>
-            </button>
-          </div>
-          <div class="modal-body">
-            <form id="edit-review-form-modal">
-              <div class="form-group">
-                <label for="edit-review-rating-modal">Rating</label>
-                <select id="edit-review-rating-modal" class="form-control" required>
-                  <option value="">Select</option>
-                  <option value="5" ${rating==5?'selected':''}>5 - Excellent</option>
-                  <option value="4" ${rating==4?'selected':''}>4 - Good</option>
-                  <option value="3" ${rating==3?'selected':''}>3 - Average</option>
-                  <option value="2" ${rating==2?'selected':''}>2 - Poor</option>
-                  <option value="1" ${rating==1?'selected':''}>1 - Terrible</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label for="edit-review-comment-modal">Comment</label>
-                <textarea id="edit-review-comment-modal" class="form-control" rows="3" required>${comment}</textarea>
-              </div>
-              <button type="submit" class="btn btn-primary">Save Changes</button>
-              <div id="edit-review-message-modal" class="mt-2"></div>
-            </form>
-          </div>
-        </div>
-      </div>
-    </div>`;
-    $('#editReviewModal').remove();
-    $('body').append(editModalHtml);
-    $('#editReviewModal').modal('show');
-    $('#edit-review-form-modal').on('submit', function (e) {
-        e.preventDefault();
-        const newRating = $('#edit-review-rating-modal').val();
-        const newComment = $('#edit-review-comment-modal').val();
-        if (!newRating || !newComment) return;
-        $.ajax({
-            url: `${API_BASE}/review/${reviewId}`,
-            method: 'PUT',
-            headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
-            data: JSON.stringify({ rating: newRating, comment: newComment }),
-            success: function () {
-                $('#edit-review-message-modal').html('<div class="alert alert-success">Review updated!</div>');
-                setTimeout(() => { $('#editReviewModal').modal('hide'); $(".show-details[data-id]").first().click(); }, 1000);
-            },
-            error: function (xhr) {
-                let msg = 'Failed to update review.';
-                if (xhr.responseJSON && xhr.responseJSON.error) msg += ' ' + xhr.responseJSON.error;
-                $('#edit-review-message-modal').html('<div class="alert alert-danger">' + msg + '</div>');
+    // Reload reviews with editing state
+    const id = $('#detailsItemId').val() || $('.show-details[data-id]').first().data('id');
+    $.get(`${API_BASE}/product/${id}/reviews`, function (data) {
+        let userId = getUserId();
+        data.reviews.forEach(r => {
+            if (r.id == reviewId && userId && r.user_id && userId == r.user_id) {
+                r.editing = true;
             }
         });
+        let html = '<h5>Reviews</h5>';
+        if (!data.reviews || !data.reviews.length) {
+            html += '<div class="alert alert-info">No reviews yet.</div>';
+        } else {
+            data.reviews.forEach(r => {
+                let canEdit = userId && r.user_id && userId == r.user_id;
+                if (canEdit && r.editing) {
+                    html += `<div class='card review-card mb-2' data-review-id='${r.id}'>
+                        <div class='card-body'>
+                            <form class='edit-review-inline-form'>
+                                <div class='form-group mb-2'>
+                                    <label for='edit-inline-rating-${r.id}' class='mb-0'>Rating</label>
+                                    <select id='edit-inline-rating-${r.id}' class='form-control form-control-sm' required>
+                                        <option value=''>Select</option>
+                                        <option value='5' ${r.rating==5?'selected':''}>5 - Excellent</option>
+                                        <option value='4' ${r.rating==4?'selected':''}>4 - Good</option>
+                                        <option value='3' ${r.rating==3?'selected':''}>3 - Average</option>
+                                        <option value='2' ${r.rating==2?'selected':''}>2 - Poor</option>
+                                        <option value='1' ${r.rating==1?'selected':''}>1 - Terrible</option>
+                                    </select>
+                                </div>
+                                <div class='form-group mb-2'>
+                                    <label for='edit-inline-comment-${r.id}' class='mb-0'>Comment</label>
+                                    <textarea id='edit-inline-comment-${r.id}' class='form-control form-control-sm' rows='2' required>${r.comment}</textarea>
+                                </div>
+                                <button type='submit' class='btn btn-sm btn-primary'>Save</button>
+                                <button type='button' class='btn btn-sm btn-secondary cancel-edit-inline-btn ml-2'>Cancel</button>
+                                <div class='edit-inline-message mt-2'></div>
+                            </form>
+                        </div>
+                    </div>`;
+                } else {
+                    html += `<div class="card review-card mb-2"><div class="card-body p-2">
+                        <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+                        <div>${r.comment}</div>
+                        <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
+                        ${canEdit ? `
+                            <button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="${r.id}">Edit</button>
+                            <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="${r.id}">Delete</button>
+                        ` : ''}
+                    </div></div>`;
+                }
+            });
+        }
+        $('#modal-reviews-section').html(html);
+                            // If user can review, focus the add review form
+                            if (token && canReview && (!data.reviews || !data.reviews.some(r => r.user_id == getUserId()))) {
+                                $('#modal-add-review-section').show();
+                            }
     });
-    $('#editReviewModal').on('hidden.bs.modal', function () { $(this).remove(); });
+});
+
+// Handle inline edit form submit in modal
+$(document).on('submit', '.edit-review-inline-form', function (e) {
+    e.preventDefault();
+    const $form = $(this);
+    const reviewId = $form.closest('.review-card').data('review-id');
+    const newRating = $form.find('select').val();
+    const newComment = $form.find('textarea').val();
+    if (!newRating || !newComment) return;
+    $.ajax({
+        url: `${API_BASE}/review/${reviewId}`,
+        method: 'PUT',
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
+        data: JSON.stringify({ rating: newRating, comment: newComment }),
+        success: function () {
+            $form.find('.edit-inline-message').html('<div class="alert alert-success">Review updated!</div>');
+            setTimeout(() => { $(".show-details[data-id]").first().click(); }, 1000);
+        },
+        error: function (xhr) {
+            let msg = 'Failed to update review.';
+            if (xhr.responseJSON && xhr.responseJSON.error) msg += ' ' + xhr.responseJSON.error;
+            $form.find('.edit-inline-message').html('<div class="alert alert-danger">' + msg + '</div>');
+        }
+    });
+});
+
+// Cancel inline edit in modal
+$(document).on('click', '.cancel-edit-inline-btn', function () {
+    $(".show-details[data-id]").first().click();
 });
                             }
                             $('#modal-reviews-section').html(html);
@@ -440,15 +509,132 @@ $(document).ready(function () {
                                 let userId = getUserId();
                                 data.reviews.forEach(r => {
                                     let canEdit = userId && r.user_id && userId == r.user_id;
-                                    html += `<div class="card review-card mb-2"><div class="card-body p-2">
-                                        <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
-                                        <div>${r.comment}</div>
-                                        <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
-                                        ${canEdit ? '<button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="' + r.id + '">Edit</button>' : ''}
-                                    </div></div>`;
+                                    if (canEdit && r.editing) {
+                                        html += `<div class='card review-card mb-2' data-review-id='${r.id}'>
+                                            <div class='card-body'>
+                                                <form class='edit-review-inline-form'>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-rating-${r.id}' class='mb-0'>Rating</label>
+                                                        <select id='edit-inline-rating-${r.id}' class='form-control form-control-sm' required>
+                                                            <option value=''>Select</option>
+                                                            <option value='5' ${r.rating==5?'selected':''}>5 - Excellent</option>
+                                                            <option value='4' ${r.rating==4?'selected':''}>4 - Good</option>
+                                                            <option value='3' ${r.rating==3?'selected':''}>3 - Average</option>
+                                                            <option value='2' ${r.rating==2?'selected':''}>2 - Poor</option>
+                                                            <option value='1' ${r.rating==1?'selected':''}>1 - Terrible</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-comment-${r.id}' class='mb-0'>Comment</label>
+                                                        <textarea id='edit-inline-comment-${r.id}' class='form-control form-control-sm' rows='2' required>${r.comment}</textarea>
+                                                    </div>
+                                                    <button type='submit' class='btn btn-sm btn-primary'>Save</button>
+                                                    <button type='button' class='btn btn-sm btn-secondary cancel-edit-inline-btn ml-2'>Cancel</button>
+                                                    <div class='edit-inline-message mt-2'></div>
+                                                </form>
+                                            </div>
+                                        </div>`;
+                                    } else {
+                                        html += `<div class="card review-card mb-2"><div class="card-body p-2">
+                                            <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+                                            <div>${r.comment}</div>
+                                            <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
+                                            ${canEdit ? '<button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="' + r.id + '">Edit</button> <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="' + r.id + '">Delete</button>' : ''}
+                                        </div></div>`;
+                                    }
                                 });
                             }
                             $('#modal-reviews-section').html(html);
+
+                            // Attach handlers after rendering
+                            $('.delete-review-btn').off('click').on('click', function () {
+                                const reviewId = $(this).data('review-id');
+                                if (!confirm('Are you sure you want to delete this review?')) return;
+                                $.ajax({
+                                    url: `${API_BASE}/review/${reviewId}`,
+                                    method: 'DELETE',
+                                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                                    success: function () {
+                                        loadModalReviews();
+                                    },
+                                    error: function () {
+                                        alert('Failed to delete review.');
+                                    }
+                                });
+                            });
+                            $('.edit-review-btn').off('click').on('click', function () {
+                                const reviewId = $(this).data('review-id');
+                                // Mark this review as editing and reload
+                                data.reviews.forEach(r => { r.editing = (r.id === reviewId); });
+                                let html = '<h5>Reviews</h5>';
+                                data.reviews.forEach(r => {
+                                    let canEdit = userId && r.user_id && userId == r.user_id;
+                                    if (canEdit && r.editing) {
+                                        html += `<div class='card review-card mb-2' data-review-id='${r.id}'>
+                                            <div class='card-body'>
+                                                <form class='edit-review-inline-form'>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-rating-${r.id}' class='mb-0'>Rating</label>
+                                                        <select id='edit-inline-rating-${r.id}' class='form-control form-control-sm' required>
+                                                            <option value=''>Select</option>
+                                                            <option value='5' ${r.rating==5?'selected':''}>5 - Excellent</option>
+                                                            <option value='4' ${r.rating==4?'selected':''}>4 - Good</option>
+                                                            <option value='3' ${r.rating==3?'selected':''}>3 - Average</option>
+                                                            <option value='2' ${r.rating==2?'selected':''}>2 - Poor</option>
+                                                            <option value='1' ${r.rating==1?'selected':''}>1 - Terrible</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class='form-group mb-2'>
+                                                        <label for='edit-inline-comment-${r.id}' class='mb-0'>Comment</label>
+                                                        <textarea id='edit-inline-comment-${r.id}' class='form-control form-control-sm' rows='2' required>${r.comment}</textarea>
+                                                    </div>
+                                                    <button type='submit' class='btn btn-sm btn-primary'>Save</button>
+                                                    <button type='button' class='btn btn-sm btn-secondary cancel-edit-inline-btn ml-2'>Cancel</button>
+                                                    <div class='edit-inline-message mt-2'></div>
+                                                </form>
+                                            </div>
+                                        </div>`;
+                                    } else {
+                                        html += `<div class="card review-card mb-2"><div class="card-body p-2">
+                                            <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+                                            <div>${r.comment}</div>
+                                            <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
+                                            ${canEdit ? `
+                                                <button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="${r.id}">Edit</button>
+                                                <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="${r.id}">Delete</button>
+                                            ` : ''}
+                                        </div></div>`;
+                                    }
+                                });
+                                $('#modal-reviews-section').html(html);
+                                // Re-attach form handler
+                                $('.edit-review-inline-form').off('submit').on('submit', function (e) {
+                                    e.preventDefault();
+                                    const $form = $(this);
+                                    const reviewId = $form.closest('.review-card').data('review-id');
+                                    const newRating = $form.find('select').val();
+                                    const newComment = $form.find('textarea').val();
+                                    if (!newRating || !newComment) return;
+                                    $.ajax({
+                                        url: `${API_BASE}/review/${reviewId}`,
+                                        method: 'PUT',
+                                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token'), 'Content-Type': 'application/json' },
+                                        data: JSON.stringify({ rating: newRating, comment: newComment }),
+                                        success: function () {
+                                            loadModalReviews();
+                                        },
+                                        error: function (xhr) {
+                                            let msg = 'Failed to update review.';
+                                            if (xhr.responseJSON && xhr.responseJSON.error) msg += ' ' + xhr.responseJSON.error;
+                                            $form.find('.edit-inline-message').html('<div class="alert alert-danger">' + msg + '</div>');
+                                        }
+                                    });
+                                });
+                                // Cancel button
+                                $('.cancel-edit-inline-btn').off('click').on('click', function () {
+                                    loadModalReviews();
+                                });
+                            });
                         });
                     }
                     loadModalReviews();
@@ -589,4 +775,41 @@ $(document).ready(function () {
     $(document).on('change', '.filter-category-checkbox', function() {
         loadProductsWithFilters();
     });
+});
+
+// --- AUTOCOMPLETE SEARCH ---
+$(document).ready(function() {
+  $('#search-box').on('input', function() {
+    const query = $(this).val().trim();
+    if (query.length < 2) {
+      $('#search-autocomplete').empty().hide();
+      return;
+    }
+    $.get(`${API_BASE}/items/search?q=${encodeURIComponent(query)}`, function(data) {
+      let html = '';
+      if (data && data.items && data.items.length) {
+        data.items.forEach(item => {
+          html += `<a href="product.html?id=${item.id}" class="list-group-item list-group-item-action">${item.name}</a>`;
+        });
+      } else {
+        html = '<div class="list-group-item">No results found</div>';
+      }
+      $('#search-autocomplete').html(html).show();
+    });
+  });
+  // Hide autocomplete when clicking outside
+  $(document).on('click', function(e) {
+    if (!$(e.target).closest('#search-box, #search-autocomplete').length) {
+      $('#search-autocomplete').empty().hide();
+    }
+  });
+  // Optional: handle enter key to go to first result
+  $('#search-box').on('keydown', function(e) {
+    if (e.key === 'Enter') {
+      const first = $('#search-autocomplete a').first();
+      if (first.length) {
+        window.location = first.attr('href');
+      }
+    }
+  });
 });

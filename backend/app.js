@@ -1,8 +1,19 @@
+
+// Only require modules once
 const express = require('express');
 const app = express();
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 const connection = require('./config/database');
+
+// Ensure receipts directory exists and serve as static
+const receiptsDir = path.join(__dirname, 'receipts');
+if (!fs.existsSync(receiptsDir)) {
+    fs.mkdirSync(receiptsDir, { recursive: true });
+    console.log('Created receipts directory at', receiptsDir);
+}
+app.use('/receipts', express.static(receiptsDir));
 
 const itemRoutes = require('./routes/item');
 const users = require('./routes/user');
@@ -32,6 +43,9 @@ app.get('/api/v1/health', (req, res) => {
     });
 });
 
+
+// Serve receipts as static files for download links in emails
+app.use('/receipts', express.static(path.join(__dirname, 'receipts')));
 app.use('/images', express.static(path.join(__dirname, 'images')))
 
 // Serve static frontend files
