@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My Cart | Hardware Store</title>
+  <link rel="stylesheet" href="../../css/style.css" />
+  <link rel="stylesheet" href="css/navbar.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" crossorigin="anonymous" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+  <script src="js/cart.js"></script>
+  <script src="js/navbar.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', function() {
+      document.body.insertAdjacentHTML('afterbegin', '<div id="js-debug" style="color:red;font-weight:bold;display:none"></div>');
+      setTimeout(function() {
+        if (!window.cartJsLoaded) {
+          document.getElementById('js-debug').style.display = 'block';
+          document.getElementById('js-debug').innerText = 'cart.js did NOT run! Check if js/cart.js is missing or has errors.';
+        }
+      }, 1000);
+    });
+  </script>
+</head>
+<body>
+  <div id="navbar"></div>
+  <script>
+    $('#navbar').load('navbar.html', function(response, status, xhr) {
+      if (status === 'error') {
+        console.warn('Failed to load navbar:', xhr.status, xhr.statusText);
+        $('#navbar').html('<nav class="navbar navbar-dark bg-dark"><span class="navbar-brand">Hardware Store (navbar failed to load)</span></nav>');
+        document.body.insertAdjacentHTML('afterbegin', '<div style="color:red;font-weight:bold">Failed to load navbar.html</div>');
+      }
+    });
+  </script>
+  <section class="jumbotron text-center bg-warning text-dark mb-0" style="background: linear-gradient(90deg, #f7971e 60%, #ffd200 100%);">
+    <div class="container">
+      <h1 class="display-4 font-weight-bold"><span class="fa fa-shopping-cart mr-2"></span>My Cart</h1>
+      <p class="lead">Review your selected items and proceed to checkout!</p>
+    </div>
+  </section>
+  <div class="container py-5">
+    <div id="cartTable"></div>
+    <div class="text-right mt-4">
+      <button class="btn btn-secondary" onclick="window.location='home.html'">Continue Shopping</button>
+      <button class="btn btn-success ml-2" id="checkoutBtn" onclick="window.location='checkout.html'">Checkout</button>
+    </div>
+  </div>
+</body>
+</html>

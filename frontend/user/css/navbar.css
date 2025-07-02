@@ -1,0 +1,9 @@
+.navbar .nav-link:hover, .navbar .nav-link.active {
+  color: #ffd200 !important;
+  background: rgba(255,255,255,0.05);
+  border-radius: 0.25rem;
+}
+.navbar .navbar-brand {
+  font-size: 1.4rem;
+  letter-spacing: 1px;
+}

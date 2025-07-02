@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hardware Store | Home</title>
+  <link rel="stylesheet" href="../../css/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" crossorigin="anonymous" />
+  <script src="https://code.jquery.com/jquery-3.6.4.min.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
+  <!-- Optionally set API_BASE_URL for custom backend port -->
+  <!-- <script>window.API_BASE_URL = 'http://localhost:3000/api/v1';</script> -->
+  <script src="js/home.js"></script>
+</head>
+<body>
+  <div id="navbar"></div>
+  <div id="home"></div>
+  <script>$('#navbar').load('navbar.html');</script>
+  <section class="jumbotron text-center bg-warning text-dark mb-0" style="background: linear-gradient(90deg, #f7971e 60%, #ffd200 100%);">
+    <div class="container">
+      <h1 class="display-4 font-weight-bold">Welcome to Your Hardware Store</h1>
+      <p class="lead">Find the best tools, fasteners, paint, and safety gear for your next project!</p>
+      <a href="#items" class="btn btn-dark btn-lg mt-3">Shop Now</a>
+    </div>
+  </section>
+  <div class="container-fluid">
+    <div class="row">
+      <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar py-4" id="filter-sidebar">
+        <h5 class="mb-3">Filter Products</h5>
+        <form id="product-filter-form">
+          <div class="form-group">
+            <label>Category</label>
+            <div id="filter-categories">
+              <!-- Categories will be loaded here -->
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="filter-min-price">Min Price</label>
+            <input type="number" class="form-control" id="filter-min-price" min="0" step="0.01" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label for="filter-max-price">Max Price</label>
+            <input type="number" class="form-control" id="filter-max-price" min="0" step="0.01" placeholder="">
+          </div>
+          <button type="submit" class="btn btn-primary btn-block">Apply Filters</button>
+          <button type="button" class="btn btn-secondary btn-block mt-2" id="clear-filters-btn">Clear</button>
+        </form>
+      </nav>
+      <main class="col-md-9 col-lg-10 ml-sm-auto px-4" id="main-products-area">
+        <div id="items">
+          <h2 class="mb-4 text-center font-weight-bold">Shop Products</h2>
+          <!-- Products will be loaded here by JS -->
+        </div>
+      </main>
+    </div>
+  </div>
+  <a href="cart.html" class="btn btn-warning position-fixed" style="bottom:30px;right:30px;z-index:1000;">
+    <span class="fa fa-shopping-cart"></span> Cart <span id="itemCount" class="badge badge-danger" style="display:none;">0</span>
+  </a>
+  <!-- The #itemCount badge is dynamically updated by JS to reflect the cart count in the database -->
+</body>
+</html>
