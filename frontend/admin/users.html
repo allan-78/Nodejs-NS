@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; margin: 0; }
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 230px;
+            background: #232946;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px #0002;
+            z-index: 100;
+        }
+        .sidebar h2 {
+            margin: 0; padding: 32px 0 24px 0;
+            text-align: center;
+            font-size: 1.6em;
+            letter-spacing: 1px;
+            background: #232946;
+            border-bottom: 1px solid #2e335a;
+        }
+        .sidebar nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+        }
+        .sidebar nav a {
+            color: #fff;
+            text-decoration: none;
+            padding: 16px 32px;
+            font-size: 1.08em;
+            border-left: 4px solid transparent;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .sidebar nav a:hover, .sidebar nav a.active {
+            background: #121629;
+            border-left: 4px solid #007bff;
+        }
+        .sidebar .logout {
+            margin: 24px 0 0 0;
+            padding: 16px 32px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            font-size: 1.08em;
+            cursor: pointer;
+            border-radius: 0;
+            text-align: left;
+            transition: background 0.2s;
+        }
+        .sidebar .logout:hover {
+            background: #b32b3a;
+        }
+        .main-content {
+            margin-left: 230px;
+            padding: 48px 32px;
+            min-height: 100vh;
+        }
+        h1 { color: #333; }
+        table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+        th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; }
+        th { background: #232946; color: #fff; }
+        tr.deactivated { background: #f8d7da; }
+        .actions button, .actions select { margin-right: 8px; }
+        .pagination { margin: 24px 0; text-align: center; }
+        .pagination button { margin: 0 4px; padding: 6px 14px; border: none; background: #007bff; color: #fff; border-radius: 4px; cursor: pointer; }
+        .pagination button.active { background: #232946; }
+        .pagination button:disabled { background: #ccc; cursor: not-allowed; }
+        #infinite-loader { text-align: center; margin: 16px 0; display: none; }
+        @media (max-width: 700px) {
+            .sidebar { width: 100vw; height: auto; position: static; }
+            .main-content { margin-left: 0; padding: 24px 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Admin Panel</h2>
+        <nav>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="products.html">Manage Products</a>
+            <a href="orders.html">View Orders</a>
+            <a href="users.html" class="active">Manage Users</a>
+        </nav>
+        <button class="logout" id="logoutBtn">Logout</button>
+    </div>
+    <div class="main-content">
+        <h1>Manage Users</h1>
+        <div style="margin-bottom: 16px;">
+            <button id="loadPaginated">Pagination</button>
+            <button id="loadInfinite">Infinite Scroll</button>
+        </div>
+        <table id="usersTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+        <div class="pagination" id="pagination"></div>
+        <div id="infinite-loader">Loading more users...</div>
+    </div>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="js/users.js"></script>
+</body>
+</html>

@@ -22,11 +22,18 @@ $(document).ready(function () {
       contentType: 'application/json',
       data: JSON.stringify({ email, password }),
       success: function (res) {
-        // Save JWT and user_id to localStorage
+        // Save JWT, user_id, and role to localStorage
         localStorage.setItem('token', res.token);
         localStorage.setItem('user_id', res.user.id);
+        localStorage.setItem('role', res.role || (res.user && res.user.role) || 'customer');
         $('#loginMsg').html('<div class="alert alert-success">Login successful! Redirecting...</div>');
-        setTimeout(() => window.location = 'home.html', 1200);
+        setTimeout(() => {
+          if ((res.role || (res.user && res.user.role)) === 'admin') {
+            window.location = '../admin/dashboard.html';
+          } else {
+            window.location = 'home.html';
+          }
+        }, 1200);
       },
       error: function (xhr) {
         let msg = xhr.responseJSON?.message || xhr.responseJSON?.error || 'Login failed';

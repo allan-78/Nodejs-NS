@@ -1,10 +1,118 @@
+// Admin: Delete an order and its related records
+exports.deleteOrder = (req, res) => {
+    const orderId = req.params.id;
+    if (!orderId) return res.status(400).json({ error: 'Missing order id' });
+    const connection = require('../config/database');
+    connection.beginTransaction(err => {
+        if (err) return res.status(500).json({ error: 'Transaction error', details: err });
+        // 1. Get transaction IDs for this order
+        connection.query('SELECT id FROM transactions WHERE order_id = ?', [orderId], (err2, txRows) => {
+            if (err2) return connection.rollback(() => res.status(500).json({ error: 'Failed to fetch transactions', details: err2 && err2.sqlMessage ? err2.sqlMessage : err2 }));
+            const txIds = txRows.map(row => row.id);
+            // 2. Delete transaction_items if any
+            if (txIds.length > 0) {
+                const placeholders = txIds.map(() => '?').join(',');
+                const sql = `DELETE FROM transaction_items WHERE transaction_id IN (${placeholders})`;
+                connection.query(sql, txIds, err3 => {
+                    if (err3) return connection.rollback(() => res.status(500).json({ error: 'Failed to delete transaction items', details: err3 && err3.sqlMessage ? err3.sqlMessage : err3 }));
+                    deleteTxAndOrder();
+                });
+            } else {
+                // No transaction_items to delete, just continue
+                deleteTxAndOrder();
+            }
+            // 3. Delete transactions and order
+            function deleteTxAndOrder() {
+                connection.query('DELETE FROM transactions WHERE order_id = ?', [orderId], err4 => {
+                    if (err4) return connection.rollback(() => res.status(500).json({ error: 'Failed to delete transactions', details: err4 && err4.sqlMessage ? err4.sqlMessage : err4 }));
+                    connection.query('DELETE FROM orders WHERE id = ?', [orderId], err5 => {
+                        if (err5) return connection.rollback(() => res.status(500).json({ error: 'Failed to delete order', details: err5 && err5.sqlMessage ? err5.sqlMessage : err5 }));
+                        connection.commit(err6 => {
+                            if (err6) return connection.rollback(() => res.status(500).json({ error: 'Commit error', details: err6 && err6.sqlMessage ? err6.sqlMessage : err6 }));
+                            res.json({ success: true, message: 'Order and related records deleted.' });
+                        });
+                    });
+                });
+            }
+        });
+    });
+}
+// Admin: Update transaction status, send email with PDF receipt
+exports.updateTransactionStatus = async (req, res) => {
+    let transactionId = req.params.id;
+    let { status } = req.body;
+    // Sanitize parameters: undefined -> null
+    if (typeof transactionId === 'undefined' || transactionId === undefined) transactionId = null;
+    if (typeof status === 'undefined' || status === undefined) status = null;
+    // Defensive: convert to string if possible
+    if (transactionId !== null && typeof transactionId !== 'string') transactionId = String(transactionId);
+    if (status !== null && typeof status !== 'string') status = String(status);
+    if (!transactionId || !status) {
+        return res.status(400).json({ error: 'Missing transaction id or status' });
+    }
+    const transporter = require('../utils/mailer');
+    const { generateOrderReceipt } = require('../utils/pdf');
+    const path = require('path');
+    const fs = require('fs');
+    // Update transaction status
+    const updateSql = 'UPDATE transactions SET status = ?, updated_at = NOW() WHERE id = ?';
+    // Ensure no undefined in SQL params
+    connection.execute(updateSql, [status ?? null, transactionId ?? null], (err, result) => {
+        if (err) return res.status(500).json({ error: 'Failed to update transaction', details: err });
+        if (result.affectedRows === 0) return res.status(404).json({ error: 'Transaction not found' });
+        // Fetch transaction, user, and items for receipt
+        const fetchTxSql = 'SELECT t.*, u.name, u.email FROM transactions t JOIN users u ON t.user_id = u.id WHERE t.id = ?';
+        connection.execute(fetchTxSql, [transactionId ?? null], (err2, txRows) => {
+            if (err2 || txRows.length === 0) return res.status(500).json({ error: 'Failed to fetch transaction details', details: err2 });
+            const transaction = txRows[0];
+            const itemsSql = 'SELECT oi.*, p.name FROM transaction_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?';
+            connection.execute(itemsSql, [transaction.order_id ?? null], async (err3, items) => {
+                if (err3) return res.status(500).json({ error: 'Failed to fetch order items', details: err3 });
+                // Generate PDF receipt
+                const pdfPath = path.join(__dirname, '../receipts', `receipt_${transactionId}.pdf`);
+                fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
+                try {
+                    await generateOrderReceipt(transaction, items, transaction, pdfPath);
+                } catch (pdfErr) {
+                    return res.status(500).json({ error: 'Failed to generate PDF receipt', details: pdfErr });
+                }
+                // Build absolute URL for receipt
+                const protocol = process.env.BACKEND_PROTOCOL || 'http';
+                const host = process.env.BACKEND_HOST || req.headers.host || 'localhost:3000';
+                const receiptUrl = `${protocol}://${host}/receipts/receipt_${transactionId}.pdf`;
+                // Send email
+                const mailOptions = {
+                    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+                    to: transaction.email,
+                    subject: `Order Update (Transaction #${transactionId})`,
+                    text: `Your order status has been updated to: ${status}.\n\nDownload your updated receipt: ${receiptUrl}`,
+                    html: `<p>Your order status has been updated to: <b>${status}</b>.</p><p><b>Download your updated receipt:</b> <a href="${receiptUrl}">${receiptUrl}</a></p>`,
+                    attachments: [
+                        {
+                            filename: `receipt_${transactionId}.pdf`,
+                            path: pdfPath
+                        }
+                    ]
+                };
+                transporter.sendMail(mailOptions, (err4, info) => {
+                    if (err4) {
+                        return res.status(500).json({ error: 'Failed to send email', details: err4 });
+                    }
+                    res.json({ success: true, message: 'Transaction updated and email sent', receiptUrl });
+                });
+            });
+        });
+    });
+};
 const connection = require('../config/database');
 
 // Create an order using laravel.sql schema: orders, order_items, carts, products, users
 exports.createOrder = (req, res, next) => {
-    const { userId, cart } = req.body;
+    let { userId, cart } = req.body;
     const dateOrdered = new Date();
-
+    // Sanitize parameters: undefined -> null
+    if (typeof userId === 'undefined') userId = null;
+    if (typeof cart === 'undefined') cart = null;
     if (!userId || !Array.isArray(cart) || cart.length === 0) {
         return res.status(400).json({ error: 'Missing user or cart data' });
     }
@@ -35,12 +143,16 @@ exports.createOrder = (req, res, next) => {
 
             const order_id = result.insertId;
             // Insert each cart item into order_items
-            const orderItemSql = 'INSERT INTO order_items (order_id, product_id, quantity, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
+            const orderItemSql = 'INSERT INTO transaction_items (order_id, product_id, quantity, price, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)';
             let errorOccurred = false;
             let completed = 0;
 
             cart.forEach((item, idx) => {
-                connection.execute(orderItemSql, [order_id, item.product_id, item.quantity, item.price, dateOrdered, dateOrdered], (err) => {
+                // Defensive: sanitize all item properties
+                const product_id = typeof item.product_id === 'undefined' ? null : item.product_id;
+                const quantity = typeof item.quantity === 'undefined' ? null : item.quantity;
+                const price = typeof item.price === 'undefined' ? null : item.price;
+                connection.execute(orderItemSql, [order_id, product_id, quantity, price, dateOrdered, dateOrdered], (err) => {
                     if (err && !errorOccurred) {
                         errorOccurred = true;
                         return connection.rollback(() => {
@@ -74,7 +186,7 @@ exports.createOrder = (req, res, next) => {
                                         return res.status(500).json({ error: 'Failed to fetch transaction details', details: err3 });
                                     }
                                     const transaction = txRows[0];
-                                    const itemsSql = 'SELECT oi.*, p.name FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?';
+            const itemsSql = 'SELECT oi.*, p.name FROM transaction_items oi JOIN products p ON oi.product_id = p.id WHERE oi.order_id = ?';
                                     connection.execute(itemsSql, [order_id], async (err4, items) => {
                                         if (err4) {
                                             console.error('Order item fetch error:', err4);
@@ -155,8 +267,10 @@ exports.createOrder = (req, res, next) => {
 
 // Get all transactions for a user (with items)
 exports.getUserOrders = (req, res) => {
-    const userId = req.query.user_id || req.user.id;
-    const sql = 'SELECT * FROM transactions WHERE user_id = ? ORDER BY created_at DESC';
+    let userId = req.query.user_id || (req.user && req.user.id);
+    if (typeof userId === 'undefined') userId = null;
+    // Join with users to get user name for each order
+    const sql = 'SELECT t.*, u.name FROM transactions t LEFT JOIN users u ON t.user_id = u.id WHERE t.user_id = ? ORDER BY t.created_at DESC';
     connection.execute(sql, [userId], (err, transactions) => {
         if (err) return res.status(500).json({ error: 'Failed to fetch orders', details: err });
         if (!transactions.length) return res.json({ orders: [] });
@@ -164,7 +278,9 @@ exports.getUserOrders = (req, res) => {
         const transactionIds = transactions.map(t => t.id);
         if (!transactionIds.length) return res.json({ orders: [] });
         const itemSql = 'SELECT ti.*, p.name FROM transaction_items ti LEFT JOIN products p ON ti.product_id = p.id WHERE ti.transaction_id IN (' + transactionIds.map(() => '?').join(',') + ')';
-        connection.execute(itemSql, transactionIds, (err2, items) => {
+        // Defensive: ensure no undefined in transactionIds
+        const safeTransactionIds = transactionIds.map(id => (typeof id === 'undefined' ? null : id));
+        connection.execute(itemSql, safeTransactionIds, (err2, items) => {
             if (err2) {
                 console.log('Transaction items SQL error:', err2);
                 return res.status(500).json({ error: 'Failed to fetch order items', details: err2 });
@@ -175,8 +291,11 @@ exports.getUserOrders = (req, res) => {
                 if (!itemsByTransaction[i.transaction_id]) itemsByTransaction[i.transaction_id] = [];
                 itemsByTransaction[i.transaction_id].push(i);
             });
-            // Attach items to transactions
-            transactions.forEach(t => { t.items = itemsByTransaction[t.id] || []; });
+            // Attach items to transactions and ensure name is always defined
+            transactions.forEach(t => {
+                t.items = itemsByTransaction[t.id] || [];
+                if (!t.name) t.name = '';
+            });
             res.json({ orders: transactions });
         });
     });

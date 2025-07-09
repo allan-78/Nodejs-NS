@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; margin: 0; }
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            width: 230px;
+            background: #232946;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 8px #0002;
+            z-index: 100;
+        }
+        .sidebar h2 {
+            margin: 0; padding: 32px 0 24px 0;
+            text-align: center;
+            font-size: 1.6em;
+            letter-spacing: 1px;
+            background: #232946;
+            border-bottom: 1px solid #2e335a;
+        }
+        .sidebar nav {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 0;
+        }
+        .sidebar nav a {
+            color: #fff;
+            text-decoration: none;
+            padding: 16px 32px;
+            font-size: 1.08em;
+            border-left: 4px solid transparent;
+            transition: background 0.2s, border-color 0.2s;
+        }
+        .sidebar nav a:hover, .sidebar nav a.active {
+            background: #121629;
+            border-left: 4px solid #007bff;
+        }
+        .sidebar .logout {
+            margin: 24px 0 0 0;
+            padding: 16px 32px;
+            background: #e94560;
+            color: #fff;
+            border: none;
+            font-size: 1.08em;
+            cursor: pointer;
+            border-radius: 0;
+            text-align: left;
+            transition: background 0.2s;
+        }
+        .sidebar .logout:hover {
+            background: #b32b3a;
+        }
+        .main-content {
+            margin-left: 230px;
+            padding: 48px 32px;
+            min-height: 100vh;
+        }
+        @media (max-width: 700px) {
+            .sidebar { width: 100vw; height: auto; position: static; }
+            .main-content { margin-left: 0; padding: 24px 8px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Admin Panel</h2>
+        <nav>
+            <a href="dashboard.html" class="active">Dashboard</a>
+            <a href="products.html">Manage Products</a>
+            <a href="orders.html">View Orders</a>
+            <a href="users.html">Manage Users</a>
+        </nav>
+        <button class="logout" id="logoutBtn">Logout</button>
+    </div>
+    <div class="main-content">
+        <h1>Admin Dashboard</h1>
+        <p>Welcome, Admin! Use the sidebar to manage the store.</p>
+        <div style="margin-top: 32px; display: flex; flex-wrap: wrap; gap: 32px;">
+            <div style="flex: 1 1 320px; min-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px;">
+                <h3 style="margin-top:0;">Bar Chart</h3>
+                <canvas id="barChart" height="180"></canvas>
+            </div>
+            <div style="flex: 1 1 320px; min-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px;">
+                <h3 style="margin-top:0;">Line Chart</h3>
+                <canvas id="lineChart" height="180"></canvas>
+            </div>
+            <div style="flex: 1 1 320px; min-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px;">
+                <h3 style="margin-top:0;">Pie Chart</h3>
+                <canvas id="pieChart" height="180"></canvas>
+            </div>
+            <div id="mostBoughtProductCard" style="flex: 1 1 320px; min-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px;">
+                <h3 style="margin-top:0;">Most Bought Product</h3>
+                <div id="mostBoughtProduct"></div>
+            </div>
+            <div id="mostBuyingUserCard" style="flex: 1 1 320px; min-width: 320px; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 24px;">
+                <h3 style="margin-top:0;">Most Buying User</h3>
+                <div id="mostBuyingUser"></div>
+            </div>
+        </div>
+        <div style="margin-top: 40px;">
+            <h3>Quick Links</h3>
+            <ul style="list-style: none; padding: 0;">
+                <li><a href="products.html">➔ Manage Products</a></li>
+                <li><a href="orders.html">➔ View Orders</a></li>
+                <li><a href="users.html">➔ Manage Users</a></li>
+            </ul>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="js/dashboard-charts.js"></script>
+    <script>
+        document.getElementById('logoutBtn').addEventListener('click', function(e) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('role');
+            window.location = '../user/login.html';
+        });
+    </script>
+</body>
+</html>

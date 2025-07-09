@@ -1,3 +1,20 @@
+// Reactivate user by ID (set status = 'active')
+const reactivateUser = (req, res) => {
+    const userId = req.params.id || req.body.userId;
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+    const sql = "UPDATE users SET status = 'active' WHERE id = ? AND status = 'inactive'";
+    connection.execute(sql, [userId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error reactivating user', details: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found or already active' });
+        }
+        return res.status(200).json({ success: true, message: 'User reactivated successfully', userId });
+    });
+};
 const connection = require('../config/database');
 const bcrypt = require('bcrypt')
 const jwt = require("jsonwebtoken")
@@ -77,7 +94,7 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
-    const sql = 'SELECT id, name, email, password, email_verified_at, api_token FROM users WHERE email = ?';
+    const sql = 'SELECT id, name, email, password, email_verified_at, api_token, role FROM users WHERE email = ?';
     connection.execute(sql, [email], async (err, results) => {
         if (err) {
             console.log(err);
@@ -101,7 +118,7 @@ const loginUser = async (req, res) => {
             return res.status(401).json({ success: false, message: 'Invalid token or not yet verified. Please contact support or re-register.' });
         }
         delete user.password;
-        const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+        const token = jwt.sign({ id: user.id, role: user.role }, process.env.JWT_SECRET);
         // Save auth token in user_tokens table
         const saveTokenSql = 'INSERT INTO user_tokens (user_id, token, type, created_at) VALUES (?, ?, ?, NOW())';
         // Also update users.api_token column
@@ -119,7 +136,8 @@ const loginUser = async (req, res) => {
                 return res.status(200).json({
                     success: true,
                     user: { ...user, api_token: token },
-                    token
+                    token,
+                    role: user.role
                 });
             });
         });
@@ -177,25 +195,21 @@ const updateUser = (req, res) => {
 
 };
 
+// Deactivate user by ID (set status = 'inactive')
 const deactivateUser = (req, res) => {
-    const { email } = req.body;
-    if (!email) {
-        return res.status(400).json({ error: 'Email is required' });
+    const userId = req.params.id;
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
     }
-    const sql = 'UPDATE users SET is_active = 0 WHERE email = ?';
-    connection.execute(sql, [email], (err, result) => {
+    const sql = "UPDATE users SET status = 'inactive' WHERE id = ? AND status = 'active'";
+    connection.execute(sql, [userId], (err, result) => {
         if (err) {
-            console.log(err);
             return res.status(500).json({ error: 'Error deactivating user', details: err });
         }
         if (result.affectedRows === 0) {
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: 'User not found or already inactive' });
         }
-        return res.status(200).json({
-            success: true,
-            message: 'User deactivated successfully',
-            email
-        });
+        return res.status(200).json({ success: true, message: 'User deactivated successfully', userId });
     });
 };
 // Admin: Update user role
@@ -215,7 +229,7 @@ const updateUserRole = (req, res) => {
 
 // Admin: List users for datatable
 const listUsers = (req, res) => {
-    const sql = 'SELECT id, name, email, role, is_active, created_at, updated_at FROM users';
+    const sql = "SELECT id, name, email, role, status, created_at, updated_at FROM users";
     connection.execute(sql, [], (err, results) => {
         if (err) {
             return res.status(500).json({ error: 'Error fetching users', details: err });
@@ -373,4 +387,4 @@ const getUnreviewedProducts = (req, res) => {
     });
 };
 
-module.exports = { registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts, uploadProfilePhoto, updateUserRole, listUsers };
+module.exports = { registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts, uploadProfilePhoto, updateUserRole, listUsers, reactivateUser };

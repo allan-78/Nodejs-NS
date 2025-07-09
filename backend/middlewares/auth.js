@@ -33,7 +33,7 @@ exports.isAuthenticatedUser = (req, res, next) => {
         return res.status(401).json({ message: 'Invalid or expired token' });
     }
     // Check if token matches the user's api_token in DB
-    const sql = 'SELECT id, api_token FROM users WHERE id = ?';
+    const sql = 'SELECT id, api_token, role FROM users WHERE id = ?';
     connection.execute(sql, [decoded.id], (err, results) => {
         if (err || results.length === 0) {
             return res.status(401).json({ message: 'User not found' });
@@ -42,7 +42,7 @@ exports.isAuthenticatedUser = (req, res, next) => {
         if (user.api_token !== token) {
             return res.status(401).json({ message: 'Token mismatch. Please login again.' });
         }
-        req.user = { id: user.id };
+        req.user = { id: user.id, role: user.role };
         next();
     });
 };
