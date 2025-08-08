@@ -1,3 +1,15 @@
+const token = localStorage.getItem('token');
+     const getRole = localStorage.getItem('role');
+
+    if (!token || !getRole ){
+        location.href="../../status_pages/401.html"
+    }else{
+          if (getRole !== 'admin') {
+        location.href = '../../status_pages/403.html';
+    }
+    };
+
+
 $(document).ready(function () {
     const API_BASE = window.API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:3000/api/v1`;
     const token = localStorage.getItem('token');
@@ -8,14 +20,15 @@ $(document).ready(function () {
     let reachedEnd = false;
     let allOrders = [];
 
+   
     // DataTable instance
     const table = $('#ordersTable').DataTable({
         paging: true,
         pageLength: pageSize,
-        lengthChange: false,
-        searching: false,
-        info: false,
-        ordering: false,
+        lengthChange: true, // <-- enable show entries
+        searching: true,    // <-- enable search box
+        info: true,         // <-- show info
+        ordering: true,     // <-- enable column sorting
         autoWidth: false,
         columns: [
             { data: 'id' },
@@ -43,16 +56,22 @@ $(document).ready(function () {
             id: order.id,
             name: order.name || order.user_name || order.user_email || order.user_id,
             itemsHtml,
-            statusHtml: `<select class='status-select' data-id='${order.id}'>\n<option value='pending' ${order.status === 'pending' ? 'selected' : ''}>Pending</option>\n<option value='completed' ${order.status === 'completed' ? 'selected' : ''}>Completed</option>\n<option value='cancelled' ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option>\n</select>` ,
+            statusHtml: `<select class='status-select' data-id='${order.id}'>\n<option value='pending' ${order.status === 'pending' ? 'selected' : ''}>Pending</option>\n<option value='completed' ${order.status === 'completed' ? 'selected' : ''}>Completed</option>\n<option value='failed' ${order.status === 'failed' ? 'selected' : ''}>Failed</option>
+<option value='refunded' ${order.status === 'refunded' ? 'selected' : ''}>Refunded</option>\n</select>` ,
             total: `$${total.toFixed(2)}`,
             created_at: order.created_at ? order.created_at.split('T')[0] : '',
-            actions: `<button class='delete-order' data-id='${order.id}'>Delete</button>`
+            actions: `
+                <div class="d-flex gap-2">
+                    <button class='btn btn-sm btn-danger delete-order' data-id='${order.id}'>
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>`
         };
     }
 
     function fetchOrders(page = 1, append = false) {
         loading = true;
-        let url = `${API_BASE}/orders?page=${page}&limit=${pageSize}`;
+        let url = `${API_BASE}/orders/admin/orders?page=${page}&limit=${pageSize}`; // Changed to admin endpoint
         $.ajax({
             url,
             headers: { 'Authorization': 'Bearer ' + token },
@@ -113,6 +132,7 @@ $(document).ready(function () {
     $('#ordersTable').on('change', '.status-select', function () {
         const orderId = $(this).data('id');
         const status = $(this).val();
+        // Allow saving even if no other fields are changed (status is always present)
         $.ajax({
             url: `${API_BASE}/orders/admin/orders/${orderId}/status`,
             method: 'PUT',

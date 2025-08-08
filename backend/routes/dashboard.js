@@ -4,7 +4,7 @@ const router = express.Router();
 
 
 const { addressChart, salesChart, itemsChart, mostBoughtProduct, mostBuyingUser } = require('../controllers/dashboard');
-const { listUsers, updateUserRole, deactivateUser, reactivateUser } = require('../controllers/user');
+const { listUsers, updateUserRole, deactivateUser, reactivateUser, addUserByAdmin } = require('../controllers/user');
 const { isAuthenticatedUser, authorizeRoles } = require('../middlewares/auth');
 // Only admin can access dashboard charts
 router.get('/address-chart', isAuthenticatedUser, authorizeRoles('admin'), addressChart);
@@ -26,6 +26,7 @@ router.get('/users/count', isAuthenticatedUser, authorizeRoles('admin'), (req, r
 router.put('/users/role', isAuthenticatedUser, authorizeRoles('admin'), updateUserRole);
 router.put('/users/:id/deactivate', isAuthenticatedUser, authorizeRoles('admin'), deactivateUser);
 router.put('/users/:id/reactivate', isAuthenticatedUser, authorizeRoles('admin'), reactivateUser);
+router.post('/users/add', isAuthenticatedUser, authorizeRoles('admin'), addUserByAdmin);
 
 module.exports = router;
 

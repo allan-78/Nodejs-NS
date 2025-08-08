@@ -6,6 +6,28 @@
   <title>Hardware Store | Home</title>
   <link rel="stylesheet" href="../../css/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/css/bootstrap.min.css" crossorigin="anonymous" />
+  <style>
+    #search-autocomplete {
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ddd;
+      border-top: none;
+      border-radius: 0 0 0.25rem 0.25rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    #search-autocomplete .list-group-item {
+      cursor: pointer;
+      border-left: none;
+      border-right: none;
+      border-bottom: 1px solid #eee;
+    }
+    #search-autocomplete .list-group-item:hover {
+      background-color: #f8f9fa;
+    }
+    #search-autocomplete .list-group-item:last-child {
+      border-bottom: none;
+    }
+  </style>
   <script src="https://code.jquery.com/jquery-3.6.4.min.js" crossorigin="anonymous"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.0.0/dist/js/bootstrap.min.js" crossorigin="anonymous"></script>
   <!-- Optionally set API_BASE_URL for custom backend port -->
@@ -27,12 +49,36 @@
     <div class="row">
       <nav class="col-md-3 col-lg-2 d-md-block bg-light sidebar py-4" id="filter-sidebar">
         <h5 class="mb-3">Filter Products</h5>
+        <div class="form-group position-relative">
+          <label for="search-box">Search Products</label>
+          <div class="input-group">
+            <input type="text" class="form-control" id="search-box" placeholder="Search for products...">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                <i class="fa fa-search"></i> Search
+              </button>
+            </div>
+          </div>
+          <div id="search-autocomplete" class="list-group position-absolute w-100" style="z-index: 2000; display: none;"></div>
+        </div>
         <form id="product-filter-form">
           <div class="form-group">
             <label>Category</label>
             <div id="filter-categories">
               <!-- Categories will be loaded here -->
             </div>
+          </div>
+          <div class="form-group">
+            <label for="filter-sort">Sort By</label>
+            <select class="form-control" id="filter-sort">
+              <option value="">Default</option>
+              <option value="name_asc">Name (A-Z)</option>
+              <option value="name_desc">Name (Z-A)</option>
+              <option value="price_asc">Price (Low to High)</option>
+              <option value="price_desc">Price (High to Low)</option>
+              <option value="rating_desc">Rating (High to Low)</option>
+              <option value="rating_asc">Rating (Low to High)</option>
+            </select>
           </div>
           <div class="form-group">
             <label for="filter-min-price">Min Price</label>
@@ -45,11 +91,6 @@
           <button type="submit" class="btn btn-primary btn-block">Apply Filters</button>
           <button type="button" class="btn btn-secondary btn-block mt-2" id="clear-filters-btn">Clear</button>
         </form>
-        <div class="form-group">
-          <label for="search-box">Search Products</label>
-          <input type="text" class="form-control" id="search-box" placeholder="Search for products...">
-          <div id="search-autocomplete" class="list-group position-absolute w-100" style="z-index: 2000;"></div>
-        </div>
       </nav>
       <main class="col-md-9 col-lg-10 ml-sm-auto px-4" id="main-products-area">
         <div id="items">

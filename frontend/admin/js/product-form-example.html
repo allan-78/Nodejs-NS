@@ -1,0 +1,33 @@
+<!-- Example HTML for your product form (edit/add) -->
+<form id="productForm">
+  <input type="hidden" id="productId" name="productId">
+
+  <label for="productName">Name</label>
+  <input type="text" id="productName" name="productName">
+
+  <label for="productPrice">Price</label>
+  <input type="number" id="productPrice" name="productPrice" step="0.01">
+
+  <label for="productStock">Stock</label>
+  <input type="number" id="productStock" name="productStock">
+
+  <label for="productDescription">Description</label>
+  <textarea id="productDescription" name="productDescription"></textarea>
+
+  <label for="productCategory">Category</label>
+  <select id="productCategory" name="productCategory">
+    <option value="">Select Category</option>
+    <!-- Dynamically fill categories here -->
+  </select>
+
+  <label for="productImages">Images</label>
+  <input type="file" id="productImages" name="productImages" multiple>
+
+  <div id="productImagePreview"></div>
+
+  <button type="submit">Save</button>
+</form>
+
+<!--
+Make sure your actual form in products.html matches these IDs exactly for auto-fill to work.
+-->

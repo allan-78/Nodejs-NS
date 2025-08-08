@@ -18,10 +18,11 @@ const { getAllItems,
 const {isAuthenticatedUser, authorizeRoles} = require('../middlewares/auth')
 
 router.get('/items', getAllItems);
+router.get('/products', getAllItems);
 router.get('/categories', require('../controllers/item').getAllCategories);
 router.get('/items/:id', getSingleItem)
-router.post('/items', isAuthenticatedUser, authorizeRoles('admin'), upload.single('image'), createItem)
-router.put('/items/:id', isAuthenticatedUser, authorizeRoles('admin'), upload.single('image'), updateItem)
+router.post('/items', isAuthenticatedUser, authorizeRoles('admin'), upload.array('images'), createItem)
+router.put('/items/:id', isAuthenticatedUser, authorizeRoles('admin'), upload.array('images'), updateItem)
 router.delete('/items/:id', isAuthenticatedUser, authorizeRoles('admin'), deleteItem)
 router.get('/product/:id', getProductDetails);
 router.get('/product/:id/reviews', getProductReviews);

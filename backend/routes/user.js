@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const upload = require('../utils/multer')
-const {registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts} = require('../controllers/user')
+const {registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts, uploadProfilePhoto, updateUserRole, listUsers, reactivateUser, deleteUser} = require('../controllers/user')
 const {isAuthenticatedUser} = require('../middlewares/auth')
 
 router.post('/register', registerUser)
@@ -23,5 +23,13 @@ router.get('/reviews', isAuthenticatedUser, getUserReviews);
 
 // User unreviewed products endpoint
 router.get('/unreviewed-products', isAuthenticatedUser, getUnreviewedProducts);
+
+// Admin: Delete user by ID
+router.delete('/admin/:id', isAuthenticatedUser, (req, res, next) => {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admin can delete users' });
+    }
+    next();
+}, deleteUser);
 
 module.exports = router;

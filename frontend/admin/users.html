@@ -3,119 +3,535 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manage Users</title>
-    <link rel="stylesheet" href="../css/style.css">
-    <style>
-        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f4f4f4; margin: 0; }
-        .sidebar {
-            position: fixed;
-            top: 0; left: 0; bottom: 0;
-            width: 230px;
-            background: #232946;
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            box-shadow: 2px 0 8px #0002;
-            z-index: 100;
-        }
-        .sidebar h2 {
-            margin: 0; padding: 32px 0 24px 0;
-            text-align: center;
-            font-size: 1.6em;
-            letter-spacing: 1px;
-            background: #232946;
-            border-bottom: 1px solid #2e335a;
-        }
-        .sidebar nav {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            padding: 24px 0;
-        }
-        .sidebar nav a {
-            color: #fff;
-            text-decoration: none;
-            padding: 16px 32px;
-            font-size: 1.08em;
-            border-left: 4px solid transparent;
-            transition: background 0.2s, border-color 0.2s;
-        }
-        .sidebar nav a:hover, .sidebar nav a.active {
-            background: #121629;
-            border-left: 4px solid #007bff;
-        }
-        .sidebar .logout {
-            margin: 24px 0 0 0;
-            padding: 16px 32px;
-            background: #e94560;
-            color: #fff;
-            border: none;
-            font-size: 1.08em;
-            cursor: pointer;
-            border-radius: 0;
-            text-align: left;
-            transition: background 0.2s;
-        }
-        .sidebar .logout:hover {
-            background: #b32b3a;
-        }
-        .main-content {
-            margin-left: 230px;
-            padding: 48px 32px;
-            min-height: 100vh;
-        }
-        h1 { color: #333; }
-        table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-        th, td { padding: 12px 8px; border-bottom: 1px solid #eee; text-align: left; }
-        th { background: #232946; color: #fff; }
-        tr.deactivated { background: #f8d7da; }
-        .actions button, .actions select { margin-right: 8px; }
-        .pagination { margin: 24px 0; text-align: center; }
-        .pagination button { margin: 0 4px; padding: 6px 14px; border: none; background: #007bff; color: #fff; border-radius: 4px; cursor: pointer; }
-        .pagination button.active { background: #232946; }
-        .pagination button:disabled { background: #ccc; cursor: not-allowed; }
-        #infinite-loader { text-align: center; margin: 16px 0; display: none; }
-        @media (max-width: 700px) {
-            .sidebar { width: 100vw; height: auto; position: static; }
-            .main-content { margin-left: 0; padding: 24px 8px; }
-        }
-    </style>
+    <title>Manage Users - Admin Panel</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- DataTables CSS -->
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+    <!-- Custom Admin CSS -->
+    <link href="css/admin-style.css" rel="stylesheet">
 </head>
 <body>
-    <div class="sidebar">
-        <h2>Admin Panel</h2>
-        <nav>
-            <a href="dashboard.html">Dashboard</a>
-            <a href="products.html">Manage Products</a>
-            <a href="orders.html">View Orders</a>
-            <a href="users.html" class="active">Manage Users</a>
-        </nav>
-        <button class="logout" id="logoutBtn">Logout</button>
-    </div>
-    <div class="main-content">
-        <h1>Manage Users</h1>
-        <div style="margin-bottom: 16px;">
-            <button id="loadPaginated">Pagination</button>
-            <button id="loadInfinite">Infinite Scroll</button>
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 admin-sidebar">
+                <div class="d-flex flex-column h-100">
+                    <div class="text-center mb-4">
+                        <h4 class="text-white mt-2">Hardware Store</h4>
+                        <p class="text-white-50">Admin Panel</p>
+                    </div>
+                    
+                    <nav class="nav flex-column">
+                        <a class="nav-link" href="dashboard.html">
+                            <i class="fas fa-home"></i> Dashboard
+                        </a>
+                        <a class="nav-link" href="products.html">
+                            <i class="fas fa-box"></i> Manage Products
+                        </a>
+                        <a class="nav-link" href="categories.html">
+                            <i class="fas fa-tags"></i> Manage Categories
+                        </a>
+                        <a class="nav-link" href="orders.html">
+                            <i class="fas fa-shopping-cart"></i> View Orders
+                        </a>
+                        <a class="nav-link" href="reviews.html">
+                            <i class="fas fa-star"></i> Manage Reviews
+                        </a>
+                        <a class="nav-link active" href="users.html">
+                            <i class="fas fa-users"></i> Manage Users
+                        </a>
+                        <a class="nav-link text-danger mt-auto" href="#" id="logoutBtn">
+                            <i class="fas fa-sign-out-alt"></i> Logout
+                        </a>
+                    </nav>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 col-lg-10 admin-content">
+                <!-- Header Area -->
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="mb-0"><i class="fas fa-users me-2"></i>Manage Users</h2>
+                </div>
+
+                <!-- User Stats -->
+                <div class="row g-4 mb-4">
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="card bg-primary text-white h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-users fa-2x opacity-75"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-0">Total Users</h6>
+                                        <h3 class="mb-0" id="totalUsers">...</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="card bg-success text-white h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-user-check fa-2x opacity-75"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-0">Active Users</h6>
+                                        <h3 class="mb-0" id="activeUsers">...</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="card bg-info text-white h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-user-shield fa-2x opacity-75"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-0">Admin Users</h6>
+                                        <h3 class="mb-0" id="adminUsers">...</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-sm-6 col-xl-3">
+                        <div class="card bg-warning text-white h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center">
+                                    <div class="flex-shrink-0">
+                                        <i class="fas fa-user-clock fa-2x opacity-75"></i>
+                                    </div>
+                                    <div class="flex-grow-1 ms-3">
+                                        <h6 class="mb-0">New This Month</h6>
+                                        <h3 class="mb-0" id="newUsers">...</h3>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Table Actions -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <button class="btn btn-primary" id="addUserBtn">
+                            <i class="fas fa-plus me-2"></i>Add User
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Users Table Card -->
+                <div class="card">
+                    <div class="card-body">
+                        <table id="usersTable" class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
         </div>
-        <table id="usersTable">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Role</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
-        <div class="pagination" id="pagination"></div>
-        <div id="infinite-loader">Loading more users...</div>
     </div>
+
+    <!-- Add/Edit User Modal -->
+    <div class="modal fade" id="userModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header" id="userModalHeader">
+                    <h5 class="modal-title" id="userModalTitle">Add User</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="userForm" class="needs-validation" novalidate>
+                        <input type="hidden" id="userId" name="userId">
+                        <div class="mb-3">
+                            <label for="userName" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="userName" required>
+                            <div class="invalid-feedback">Please enter a name.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="userEmail" required>
+                            <div class="invalid-feedback">Please enter a valid email address.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userPassword" class="form-label">Password</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="userPassword">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small class="text-muted">Leave empty to keep existing password when editing</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userRole" class="form-label">Role</label>
+                            <select class="form-select" id="userRole" required>
+                                <option value="user">User</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Status</label>
+                            <div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="userStatus" id="statusActive" value="active" checked>
+                                    <label class="form-check-label" for="statusActive">Active</label>
+                                </div>
+                                <div class="form-check form-check-inline">
+                                    <input class="form-check-input" type="radio" name="userStatus" id="statusInactive" value="inactive">
+                                    <label class="form-check-label" for="statusInactive">Inactive</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer px-0 pb-0">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container for Notifications -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong class="me-auto">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body"></div>
+        </div>
+    </div>
+
+    <!-- Required Scripts -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="js/users.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function showNotification(message, type = 'success') {
+            const toast = $('#notificationToast');
+            const toastBody = toast.find('.toast-body');
+            
+            toast.removeClass('bg-success bg-danger bg-warning');
+            toast.addClass(`bg-${type} text-white`);
+            toastBody.text(message);
+            
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        // Initialize DataTable
+        $(document).ready(function() {
+            const table = $('#usersTable').DataTable({
+                ajax: {
+                    url: '/api/v1/users',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    dataSrc: 'users'
+                },
+                columns: [
+                    { data: 'id' },
+                    { data: 'name' },
+                    { data: 'email' },
+                    {
+                        data: 'role',
+                        render: function(data) {
+                            const badge = data === 'admin' ? 'bg-primary' : 'bg-info';
+                            return `<span class="badge ${badge}">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: 'status',
+                        render: function(data) {
+                            const badge = data === 'active' ? 'bg-success' : 'bg-danger';
+                            return `<span class="badge ${badge}">${data}</span>`;
+                        }
+                    },
+                    {
+                        data: null,
+                        render: function(data, type, row) {
+                            const isActive = row.status === 'active';
+                            return `
+                                <div class="d-flex gap-2 justify-content-center">
+                                    ${isActive ? 
+                                        `<button class='btn btn-sm btn-warning deactivate-btn' data-id='${row.id}' title="Deactivate User">
+                                            <i class="fas fa-user-times"></i> Deactivate
+                                        </button>` : 
+                                        `<button class='btn btn-sm btn-success reactivate-btn' data-id='${row.id}' title="Reactivate User">
+                                            <i class="fas fa-user-check"></i> Reactivate
+                                        </button>`
+                                    }
+                                    <button class='btn btn-sm btn-danger delete-user' data-id='${row.id}' title="Delete User">
+                                        <i class="fas fa-trash-alt"></i> Delete
+                                    </button>
+                                </div>`;
+                        }
+                    }
+                ],
+                pageLength: 10,
+                dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+                     "<'row'<'col-sm-12'tr>>" +
+                     "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+                language: {
+                    search: "_INPUT_",
+                    searchPlaceholder: "Search users..."
+                }
+            });
+
+            // Deactivate user
+            $(document).on('click', '.deactivate-btn', function() {
+                const $btn = $(this);
+                if ($btn.prop('disabled')) return;
+                
+                const userId = $btn.data('id');
+                const originalHtml = $btn.html();
+                
+                // Show loading state
+                $btn.prop('disabled', true)
+                    .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
+                    
+                $.ajax({
+                    url: `/api/v1/users/${userId}/deactivate`,
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    success: function (response) {
+                        showNotification('User has been deactivated successfully', 'success');
+                        table.ajax.reload();
+                    },
+                    error: function (xhr) {
+                        let message = 'Failed to deactivate user';
+                        if (xhr.status === 404) {
+                            message = 'User not found. This user may have been deleted.';
+                        } else if (xhr.responseJSON?.error) {
+                            message = xhr.responseJSON.error;
+                        }
+                        showNotification(message, 'danger');
+                        $btn.prop('disabled', false).html(originalHtml);
+                    }
+                });
+            });
+
+            // Reactivate user
+            $(document).on('click', '.reactivate-btn', function() {
+                const $btn = $(this);
+                if ($btn.prop('disabled')) return;
+                
+                const userId = $btn.data('id');
+                const originalHtml = $btn.html();
+                
+                // Show loading state
+                $btn.prop('disabled', true)
+                    .html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>');
+                    
+                $.ajax({
+                    url: `/api/v1/users/${userId}/reactivate`,
+                    method: 'PUT',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    success: function (response) {
+                        showNotification('User has been reactivated successfully', 'success');
+                        table.ajax.reload();
+                    },
+                    error: function (xhr) {
+                        let message = 'Failed to reactivate user';
+                        if (xhr.status === 404) {
+                            message = 'User not found. This user may have been deleted.';
+                        } else if (xhr.responseJSON?.error) {
+                            message = xhr.responseJSON.error;
+                        }
+                        showNotification(message, 'danger');
+                        $btn.prop('disabled', false).html(originalHtml);
+                    }
+                });
+            });
+
+            // Delete User handler
+            $(document).on('click', '.delete-user', function() {
+                const id = $(this).data('id');
+                
+                const confirmModal = `
+                    <div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Confirm Delete</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to delete this user? This action cannot be undone.</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-danger" id="confirmDelete">Delete</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                
+                $(confirmModal).appendTo('body');
+                const modal = new bootstrap.Modal($('#deleteConfirmModal'));
+                modal.show();
+                
+                $('#confirmDelete').on('click', function() {
+                    $.ajax({
+                        url: `/api/v1/users/admin/${id}`,
+                        method: 'DELETE',
+                        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                        success: function() {
+                            modal.hide();
+                            $('#deleteConfirmModal').remove();
+                            table.ajax.reload();
+                            showNotification('User deleted successfully', 'success');
+                        },
+                        error: function() {
+                            showNotification('Failed to delete user', 'danger');
+                        }
+                    });
+                });
+                
+                $('#deleteConfirmModal').on('hidden.bs.modal', function() {
+                    $(this).remove();
+                });
+            });
+
+            // Form validation
+            const forms = document.querySelectorAll('.needs-validation');
+            Array.from(forms).forEach(form => {
+                form.addEventListener('submit', event => {
+                    if (!form.checkValidity()) {
+                        event.preventDefault();
+                        event.stopPropagation();
+                    }
+                    form.classList.add('was-validated');
+                }, false);
+            });
+
+            // Toggle password visibility
+            $('#togglePassword').on('click', function() {
+                const passwordInput = $('#userPassword');
+                const icon = $(this).find('i');
+                
+                if (passwordInput.attr('type') === 'password') {
+                    passwordInput.attr('type', 'text');
+                    icon.removeClass('fa-eye').addClass('fa-eye-slash');
+                } else {
+                    passwordInput.attr('type', 'password');
+                    icon.removeClass('fa-eye-slash').addClass('fa-eye');
+                }
+            });
+
+            // Add User button handler
+            $('#addUserBtn').on('click', function() {
+                $('#userModalTitle').text('Add User');
+                $('#userModalHeader').removeClass('bg-primary').addClass('bg-success');
+                $('#userForm')[0].reset();
+                $('#userId').val('');
+                const modal = new bootstrap.Modal($('#userModal'));
+                modal.show();
+            });
+
+            // Form submit handler
+            $('#userForm').on('submit', function(e) {
+                e.preventDefault();
+                if (!this.checkValidity()) return;
+
+                const id = $('#userId').val();
+                const data = {
+                    name: $('#userName').val(),
+                    email: $('#userEmail').val(),
+                    password: $('#userPassword').val(),
+                    role: $('#userRole').val(),
+                    status: $('input[name="userStatus"]:checked').val()
+                };
+
+                const url = id ? `/api/v1/users/${id}` : '/api/v1/users/add';
+                const method = id ? 'PUT' : 'POST';
+
+                $.ajax({
+                    url: url,
+                    method: method,
+                    headers: { 
+                        'Authorization': 'Bearer ' + localStorage.getItem('token'),
+                        'Content-Type': 'application/json'
+                    },
+                    data: JSON.stringify(data),
+                    success: function() {
+                        const modal = bootstrap.Modal.getInstance($('#userModal'));
+                        modal.hide();
+                        table.ajax.reload();
+                        showNotification(`User ${id ? 'updated' : 'added'} successfully`, 'success');
+                    },
+                    error: function(xhr) {
+                        const message = xhr.responseJSON?.message || `Failed to ${id ? 'update' : 'add'} user`;
+                        showNotification(message, 'danger');
+                    }
+                });
+            });
+
+            // Enhanced admin logout functionality
+            document.getElementById('logoutBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                const confirmModal = `
+                    <div class="modal fade" id="logoutConfirmModal" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title">Confirm Logout</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Are you sure you want to logout from the admin panel?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="button" class="btn btn-danger" id="confirmLogout">Logout</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                
+                $(confirmModal).appendTo('body');
+                const modal = new bootstrap.Modal($('#logoutConfirmModal'));
+                modal.show();
+                
+                $('#confirmLogout').on('click', function() {
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('role');
+                    showNotification('Logging out...', 'info');
+                    setTimeout(() => {
+                        window.location.href = '../user/login.html';
+                    }, 1000);
+                });
+                
+                $('#logoutConfirmModal').on('hidden.bs.modal', function() {
+                    $(this).remove();
+                });
+            });
+        });
+    </script>
 </body>
 </html>

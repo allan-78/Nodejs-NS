@@ -4,9 +4,11 @@ const path = require("path");
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
-        // Save profile photos in images/profiles, others in images
+        // Save product images in images/products, profile photos in images/profiles, others in images
         if (req.originalUrl && req.originalUrl.includes('profile-photo')) {
             cb(null, 'images/profiles');
+        } else if (req.originalUrl && req.originalUrl.includes('/items')) {
+            cb(null, 'images/products');
         } else {
             cb(null, 'images');
         }

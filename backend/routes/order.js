@@ -2,7 +2,7 @@
 const express = require('express');
 
 const router = express.Router();
-const { deleteOrder, createOrder, getUserOrders, updateTransactionStatus } = require('../controllers/order');
+const { deleteOrder, createOrder, getUserOrders, updateTransactionStatus, getAllOrders } = require('../controllers/order');
 const { isAuthenticatedUser } = require('../middlewares/auth');
 
 // Admin: delete order and related records
@@ -20,6 +20,14 @@ router.post('/orders/create', createOrder)
 
 // Get all orders for a user (fix path to / for /api/v1/orders?user_id=...)
 router.get('/', isAuthenticatedUser, getUserOrders);
+
+// Admin: Get all orders
+router.get('/admin/orders', isAuthenticatedUser, (req, res, next) => {
+    if (!req.user || req.user.role !== 'admin') {
+        return res.status(403).json({ error: 'Only admin can view all orders' });
+    }
+    next();
+}, getAllOrders);
 
 // Admin: update transaction status and send email with PDF
 router.put('/admin/orders/:id/status', isAuthenticatedUser, (req, res, next) => {

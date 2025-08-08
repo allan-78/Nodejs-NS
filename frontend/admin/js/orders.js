@@ -1,6 +1,14 @@
 const API_BASE = window.API_BASE_URL || `${window.location.protocol}//${window.location.hostname}:3000/api/v1`;
 const token = localStorage.getItem('token');
+     const getRole = localStorage.getItem('role');
 
+    if (!token || !getRole ){
+        location.href="../../status_pages/401.html"
+    }else{
+          if (getRole !== 'admin') {
+        location.href = '../../status_pages/403.html';
+    }
+    };
 
 let currentPage = 1;
 let pageSize = 10;

@@ -1,8 +1,20 @@
+const token = localStorage.getItem('token');
+     const getRole = localStorage.getItem('role');
+
+    if (!token || !getRole ){
+        location.href="../../status_pages/401.html"
+    }else{
+          if (getRole !== 'admin') {
+        location.href = '../../status_pages/403.html';
+    }
+    };
+
+     
+  
+
 // Fetch and render admin dashboard charts from backend
 document.addEventListener('DOMContentLoaded', function () {
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
+    
     // Helper: fetch chart data (absolute path for dev)
     function fetchChart(url) {
         // Try relative, fallback to absolute if needed

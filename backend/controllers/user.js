@@ -15,6 +15,75 @@ const reactivateUser = (req, res) => {
         return res.status(200).json({ success: true, message: 'User reactivated successfully', userId });
     });
 };
+
+const addUserByAdmin = async (req, res) => {
+    const { name, password, email, role } = req.body;
+
+    if (!name || !email || !password || !role) {
+        return res.status(400).json({ success: false, message: 'Name, email, password, and role are required.' });
+    }
+
+    try {
+        const checkSql = 'SELECT id FROM users WHERE email = ?';
+        connection.execute(checkSql, [email], async (err, results) => {
+            if (err) {
+                console.log(err);
+                return res.status(500).json({ success: false, message: 'Database error', error: err });
+            }
+            if (results.length > 0) {
+                return res.status(400).json({ success: false, message: 'Email already registered.' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 10);
+            const verificationToken = crypto.randomBytes(32).toString('hex');
+            const apiToken = crypto.randomBytes(32).toString('hex');
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+            const userSql = `INSERT INTO users (name, email, password, verification_token, api_token, role, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`;
+            connection.execute(userSql, [name, email, hashedPassword, verificationToken, apiToken, role], (err, result) => {
+                if (err) {
+                    console.log(err);
+                    return res.status(500).json({ success: false, message: 'User creation failed', error: err });
+                }
+
+                const saveVerificationTokenSql = 'INSERT INTO user_tokens (user_id, token, type, created_at, expires_at) VALUES (?, ?, ?, NOW(), ?)';
+                connection.execute(saveVerificationTokenSql, [result.insertId, verificationToken, 'verification', expiresAt], (err2) => {
+                    if (err2) {
+                        console.log(err2);
+                        return res.status(500).json({ success: false, message: 'Failed to save verification token', error: err2 });
+                    }
+
+                    const saveApiTokenSql = 'INSERT INTO user_tokens (user_id, token, type, created_at) VALUES (?, ?, ?, NOW())';
+                    connection.execute(saveApiTokenSql, [result.insertId, apiToken, 'auth'], (err3) => {
+                        if (err3) {
+                            console.log(err3);
+                            return res.status(500).json({ success: false, message: 'Failed to save API token', error: err3 });
+                        }
+
+                        const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/api/v1/user/verify-email?token=${verificationToken}`;
+                        const mailOptions = {
+                            from: process.env.EMAIL_USER,
+                            to: email,
+                            subject: 'Verify your email',
+                            html: `<p>Hi ${name},</p><p>Please verify your email by clicking the link below:</p><a href="${verifyUrl}">${verifyUrl}</a>`
+                        };
+
+                        transporter.sendMail(mailOptions, (err4, info) => {
+                            if (err4) {
+                                console.log(err4);
+                                return res.status(500).json({ success: false, message: 'Failed to send verification email', error: err4 });
+                            }
+                            return res.status(200).json({ success: true, message: 'User created successfully. Please check their email to verify the account.', userId: result.insertId });
+                        });
+                    });
+                });
+            });
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({ success: false, message: 'Server error', error });
+    }
+};
 const connection = require('../config/database');
 const bcrypt = require('bcrypt')
 const jwt = require("jsonwebtoken")
@@ -94,7 +163,7 @@ const registerUser = async (req, res) => {
 
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
-    const sql = 'SELECT id, name, email, password, email_verified_at, api_token, role FROM users WHERE email = ?';
+    const sql = 'SELECT id, name, email, password, email_verified_at, api_token, role, status FROM users WHERE email = ?';
     connection.execute(sql, [email], async (err, results) => {
         if (err) {
             console.log(err);
@@ -108,6 +177,10 @@ const loginUser = async (req, res) => {
         // Check if email is verified
         if (!user.email_verified_at) {
             return res.status(403).json({ success: false, message: 'Your account is not verified. Please check your email for the verification link.' });
+        }
+        // Check if user account is inactive
+        if (user.status === 'inactive') {
+            return res.status(403).json({ success: false, message: 'Your account is deactivated. Please contact support.' });
         }
         const match = await bcrypt.compare(password, user.password);
         if (!match) {
@@ -229,12 +302,48 @@ const updateUserRole = (req, res) => {
 
 // Admin: List users for datatable
 const listUsers = (req, res) => {
-    const sql = "SELECT id, name, email, role, status, created_at, updated_at FROM users";
-    connection.execute(sql, [], (err, results) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || '';
+    const offset = (page - 1) * limit;
+
+    let countSql = "SELECT COUNT(*) as count FROM users";
+    let sql = "SELECT id, name, email, role, status, created_at, updated_at FROM users";
+    const params = [];
+
+    if (search) {
+        sql += " WHERE (name LIKE ? OR email LIKE ?)";
+        countSql += " WHERE (name LIKE ? OR email LIKE ?)";
+        params.push(`%${search}%`, `%${search}%`);
+    }
+
+    sql += " LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    connection.execute(countSql, search ? [`%${search}%`, `%${search}%`] : [], (err, countResults) => {
         if (err) {
-            return res.status(500).json({ error: 'Error fetching users', details: err });
+            console.error("Error counting users:", err);
+            return res.status(500).json({ error: 'Error fetching users count', details: err });
         }
-        return res.status(200).json({ users: results });
+        const totalUsers = countResults[0].count;
+        const totalPages = Math.ceil(totalUsers / limit);
+
+        console.log("Executing user fetch query:", sql, params); // Added log
+        connection.execute(sql, params, (err, results) => {
+            if (err) {
+                console.error("Error fetching users:", err);
+                return res.status(500).json({ error: 'Error fetching users', details: err });
+            }
+            return res.status(200).json({
+                users: results,
+                pagination: {
+                    totalUsers,
+                    totalPages,
+                    currentPage: page,
+                    pageSize: limit
+                }
+            });
+        });
     });
 };
 
@@ -387,4 +496,22 @@ const getUnreviewedProducts = (req, res) => {
     });
 };
 
-module.exports = { registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts, uploadProfilePhoto, updateUserRole, listUsers, reactivateUser };
+// Admin: Delete user by ID
+const deleteUser = (req, res) => {
+    const userId = req.params.id;
+    if (!userId) {
+        return res.status(400).json({ error: 'User ID is required' });
+    }
+    const sql = 'DELETE FROM users WHERE id = ?';
+    connection.execute(sql, [userId], (err, result) => {
+        if (err) {
+            return res.status(500).json({ error: 'Error deleting user', details: err });
+        }
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        return res.status(200).json({ success: true, message: 'User deleted successfully', userId });
+    });
+};
+
+module.exports = { registerUser, loginUser, updateUser, deactivateUser, verifyEmail, getProfile, updateProfile, changePassword, getUserReviews, getUnreviewedProducts, uploadProfilePhoto, updateUserRole, listUsers, reactivateUser, deleteUser, addUserByAdmin };

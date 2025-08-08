@@ -1,5 +1,31 @@
 const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api/v1'; // Change port if needed
 
+// Format image path to ensure correct URL structure
+function formatImagePath(img) {
+    // If path is null or undefined, return default image
+    if (!img) {
+        return `${API_BASE.replace('/api/v1', '')}/images/no-image.svg`;
+    }
+    
+    // If path already starts with http:// or https://, return as is
+    if (/^https?:\/\//.test(img)) {
+        return img;
+    }
+    
+    // If path starts with /, it's already a full path
+    if (img.startsWith('/')) {
+        return `${API_BASE.replace('/api/v1', '')}${img}`;
+    }
+    
+    // If path includes 'products/', it's a relative path from the images directory
+    if (img.includes('products/')) {
+        return `${API_BASE.replace('/api/v1', '')}/images/${img}`;
+    } else {
+        // Otherwise, assume it's a product image filename in the products folder
+        return `${API_BASE.replace('/api/v1', '')}/images/products/${img}`;
+    }
+}
+
 function getUserId() {
     // Example: get user_id from localStorage after login
     return localStorage.getItem('user_id');
@@ -47,26 +73,108 @@ function loadCategoriesForFilter() {
     });
 }
 
+// Get URL parameters
+function getUrlParams() {
+    const params = new URLSearchParams(window.location.search);
+    return {
+        search: params.get('search'),
+        category: params.get('category')
+    };
+}
+
+// Initialize filters from URL parameters
+function initializeFiltersFromUrl() {
+    const { search, category } = getUrlParams();
+    
+    if (search) {
+        $('#search-box').val(search);
+    }
+    
+    if (category) {
+        $(`#cat-${category}`).prop('checked', true);
+    }
+}
+
+// Initialize the page
+$(document).ready(function() {
+    loadCategoriesForFilter();
+    
+    // Initialize filters from URL parameters after categories are loaded
+    setTimeout(() => {
+        initializeFiltersFromUrl();
+        loadProductsWithFilters();
+    }, 500);
+    
+    // Update URL when filters change
+    function updateURL() {
+        const searchQuery = $('#search-box').val().trim();
+        const selectedCategory = $('.filter-category-checkbox:checked').first().val();
+        let url = new URL(window.location.href);
+        let params = new URLSearchParams(url.search);
+        
+        if (searchQuery) {
+            params.set('search', searchQuery);
+        } else {
+            params.delete('search');
+        }
+        
+        if (selectedCategory) {
+            params.set('category', selectedCategory);
+        } else {
+            params.delete('category');
+        }
+        
+        window.history.replaceState({}, '', `${url.pathname}?${params}`);
+    }
+    
+    // Add URL update to existing event handlers
+    $('#search-box').on('change', updateURL);
+    $('.filter-category-checkbox').on('change', updateURL);
+});
+
 // Fetch and display products with filters
 function loadProductsWithFilters() {
     let selectedCategories = [];
     $('.filter-category-checkbox:checked').each(function() {
         selectedCategories.push($(this).val());
     });
+    
+    // Get URL parameters
+    const { search, category } = getUrlParams();
+    
+    // If there's a category in the URL and no checkboxes are checked, use the URL category
+    if (category && selectedCategories.length === 0) {
+        selectedCategories.push(category);
+    }
+    
     let minPrice = $('#filter-min-price').val();
     let maxPrice = $('#filter-max-price').val();
-    let params = [];
-    if (selectedCategories.length) params.push('categories=' + selectedCategories.join(','));
-    if (minPrice) params.push('min_price=' + minPrice);
-    if (maxPrice) params.push('max_price=' + maxPrice);
-    let url = `${API_BASE}/items`;
-    if (params.length) url += '?' + params.join('&');
+    let searchQuery = search || ($('#search-box').val() || '').trim();
+    let sortBy = $('#filter-sort').val();
+    
+    let params = {};
+    if (selectedCategories.length) params.categories = selectedCategories.join(',');
+    if (minPrice) params.min_price = minPrice;
+    if (maxPrice) params.max_price = maxPrice;
+    if (searchQuery) params.search = searchQuery;
+    if (sortBy) params.sort = sortBy;
+    
+    // Show loading indicator
+    $("#items").html('<div class="text-center"><div class="spinner-border" role="status"><span class="sr-only">Loading...</span></div></div>');
+    
     $.ajax({
         method: "GET",
-        url: url,
+        url: `${API_BASE}/items`,
+        data: params,
         dataType: 'json',
         success: function (data) {
             $("#items").empty();
+            
+            if (!data.products || data.products.length === 0) {
+                $("#items").html('<div class="col-12 text-center"><div class="alert alert-info">No products found matching your criteria.</div></div>');
+                return;
+            }
+            
             let row;
             $.each(data.products, function (key, value) {
                 if (key % 4 === 0) {
@@ -78,79 +186,36 @@ function loadProductsWithFilters() {
                 let starsHtml = avgRating !== null && !isNaN(Number(avgRating)) ? `<span class="text-warning">${'★'.repeat(Math.round(Number(avgRating)))}${'☆'.repeat(5 - Math.round(Number(avgRating)))}</span> <span class="small text-muted">${Number(avgRating).toFixed(1)}/5</span>` : '<span class="text-muted">No rating</span>';
                 var item = `<div class="col-md-3 mb-4">
                     <div class="card h-100 shadow product-main-card">
-                        <img src="${value.image_path || 'images/no-image.png'}" class="card-img-top" alt="${value.name}" style="height:180px;object-fit:cover;">
+                        <img src="${value.images && value.images.length > 0 ? formatImagePath(value.images[0].path) : formatImagePath('no-image.svg')}" class="card-img-top" alt="${value.name}" style="height:180px;object-fit:cover;">
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title">${value.name}</h5>
                             <div class="mb-2">${starsHtml}</div>
                             <p class="card-text">${value.description}</p>
                             <p class="card-text font-weight-bold">₱ ${value.price}</p>
                             <p class="card-text"><small class="text-muted">Stock: ${value.stock ?? 0}</small></p>
-                            <button class="btn btn-primary mt-auto show-details" data-id="${value.id}" data-name="${value.name}" data-description="${value.description}" data-price="${value.price}" data-image="${value.image_path}" data-stock="${value.stock ?? 0}">Details</button>
+                            <button class="btn btn-primary mt-auto show-details" data-id="${value.id}" data-name="${value.name}" data-description="${value.description}" data-price="${value.price}" data-image="${value.images && value.images.length > 0 ? formatImagePath(value.images[0].path) : formatImagePath('no-image.svg')}" data-stock="${value.stock ?? 0}">Details</button>
                         </div>
                     </div>
                 </div>`;
                 row.append(item);
             });
-            if ($('#productDetailsModal').length === 0) {
-                $('body').append(`
-                <div class="modal fade" id="productDetailsModal" tabindex="-1" role="dialog" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
-                  <div class="modal-dialog modal-dialog-centered" role="document">
-                    <div class="modal-content">
-                      <div class="modal-header">
-                        <h5 class="modal-title" id="productDetailsModalLabel"></h5>
-                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                          <span aria-hidden="true">&times;</span>
-                        </button>
-                      </div>
-                      <div class="modal-body text-center" id="productDetailsModalBody">
-                        <!-- Product details will be injected here -->
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                `);
-            }
-            $(".show-details").on('click', function () {
+            
+            // Re-attach event handlers for details buttons
+            $(".show-details").off('click').on('click', function () {
                 const id = $(this).data('id');
-                // Fetch product details (with avg rating, images, etc)
-                $.get(`${API_BASE}/product/${id}`, function (data) {
-                    console.log('Product details response:', data); // Debug log
-                    let p = data.product;
-                    let canReview = data.can_review; // backend should return this
-                    let userId = getUserId();
-                    let imagesHtml = '';
-                    if (p.images && p.images.length) {
-                        imagesHtml = `<img src="/${p.images[0]}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
-                    } else {
-                        imagesHtml = `<img src="images/no-image.png" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
-                    }
-                    let detailsHtml = `
-                        <div class="card p-3 border-0 product-details-modal-card">
-                            <div class="row">
-                                <div class="col-md-5 d-flex align-items-center justify-content-center">${imagesHtml}</div>
-                                <div class="col-md-7 text-left">
-                                    <h4 class="mb-1">${p.name}</h4>
-                                    <div class="mb-2"><b>Price:</b> <span class="h5 text-success">₱${p.price}</span></div>
-                                    <div class="mb-2"><b>Stock:</b> ${p.stock}</div>
-                                    <div class="mb-2"><b>Average Rating:</b> <span class="text-warning">${
-                                        (typeof p.avg_rating === 'number' && !isNaN(p.avg_rating))
-                                            ? '★'.repeat(Math.round(p.avg_rating)) + '☆'.repeat(5 - Math.round(p.avg_rating)) + ` <span class='small text-muted'>${p.avg_rating.toFixed(1)}/5</span>`
-                                            : 'N/A'
-                                    }</span></div>
-                                    <div class="mb-3"><b>Description:</b><br>${p.description ? p.description : '<em>No description available.</em>'}</div>
-                                    <div class="mb-3">
-                                        <label for="detailsQty"><b>Quantity:</b></label>
-                                        <input type="number" class="form-control d-inline-block w-auto ml-2" id="detailsQty" min="1" max="${p.stock}" value="1">
-                                        <input type="hidden" id="detailsItemId" value="${id}">
-                                        <button type="button" class="btn btn-primary ml-2" id="detailsAddToCart">Add to Cart</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div id="modal-reviews-section" class="mt-4"></div>
-                        <div id="modal-add-review-section" class="mt-3"></div>
-                    `;
-                    $('#productDetailsModalBody').html(detailsHtml);
+                showProductDetails(id);
+            });
+        },
+        error: function (error) {
+            $("#items").html('<div class="col-12 text-center"><div class="alert alert-danger">Failed to load products. Please try again.</div></div>');
+        }
+    });
+}
+            // Re-attach event handlers for details buttons
+            $(".show-details").off('click').on('click', function () {
+                const id = $(this).data('id');
+                showProductDetails(id);
+            });
                     // Fetch and show reviews
                     function loadModalReviews() {
                         $.get(`${API_BASE}/product/${id}/reviews`, function (data) {
@@ -213,6 +278,9 @@ function loadProductsWithFilters() {
                                         </div></div>`;
                                     }
                                 });
+                        
+                            }});             
+                            
 // Handle delete review in modal
 $(document).on('click', '.delete-review-btn', function () {
     const reviewId = $(this).data('review-id');
@@ -229,7 +297,6 @@ $(document).on('click', '.delete-review-btn', function () {
             alert('Failed to delete review.');
         }
     });
-});
 
 // Inline edit review in modal
 $(document).on('click', '.edit-review-btn', function () {
@@ -293,7 +360,6 @@ $(document).on('click', '.edit-review-btn', function () {
                                 $('#modal-add-review-section').show();
                             }
     });
-});
 
 // Handle inline edit form submit in modal
 $(document).on('submit', '.edit-review-inline-form', function (e) {
@@ -324,10 +390,8 @@ $(document).on('submit', '.edit-review-inline-form', function (e) {
 $(document).on('click', '.cancel-edit-inline-btn', function () {
     $(".show-details[data-id]").first().click();
 });
-                            }
-                            $('#modal-reviews-section').html(html);
-                        });
-                    }
+                         
+                    
                     loadModalReviews();
                     // Add review form (if logged in and can_review)
                     const token = localStorage.getItem('token');
@@ -382,15 +446,12 @@ $(document).on('click', '.cancel-edit-inline-btn', function () {
                     } else {
                         $('#modal-add-review-section').html('<div class="alert alert-info">Log in to add a review.</div>');
                     }
-                });
+                })
                 $('#productDetailsModal').modal('show');
+            }).fail(function() {
+                alert('Failed to load product details.');
             });
-        },
-        error: function (error) {
-            $("#items").html('<div class="alert alert-danger">Failed to load products.</div>');
         }
-    });
-}
 
 $(document).ready(function () {
     // Health check for backend/database connection
@@ -405,8 +466,7 @@ $(document).ready(function () {
         $("body").prepend('<div class="alert alert-danger text-center" id="healthCheck">Backend/database connection failed</div>');
     });
 
-    // Load header (optional, if you have a header.html)
-    $("#home").load("header.html");
+
 
     // Fetch and display products
     $.ajax({
@@ -426,7 +486,7 @@ $(document).ready(function () {
                 let starsHtml = avgRating !== null && !isNaN(Number(avgRating)) ? `<span class="text-warning">${'★'.repeat(Math.round(Number(avgRating)))}${'☆'.repeat(5 - Math.round(Number(avgRating)))}</span> <span class="small text-muted">${Number(avgRating).toFixed(1)}/5</span>` : '<span class="text-muted">No rating</span>';
                 var item = `<div class="col-md-3 mb-4">
                     <div class="card h-100 shadow product-main-card">
-                        <img src="${value.image_path || 'images/no-image.png'}" class="card-img-top" alt="${value.name}" style="height:180px;object-fit:cover;">
+                        <img src="${value.images && value.images.length > 0 ? formatImagePath(value.images[0].path) : formatImagePath('no-image.svg')}" class="card-img-top" alt="${value.name}" style="height:180px;object-fit:cover;">
                         <div class="card-body d-flex flex-column">
                             <h5 class="card-title">${value.name}</h5>
                             <div class="mb-2">${starsHtml}</div>
@@ -468,9 +528,9 @@ $(document).ready(function () {
                     let userId = getUserId();
                     let imagesHtml = '';
                     if (p.images && p.images.length) {
-                        imagesHtml = `<img src="/${p.images[0]}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
+                        imagesHtml = `<img src="${formatImagePath(p.images[0].path)}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
                     } else {
-                        imagesHtml = `<img src="images/no-image.png" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
+                        imagesHtml = `<img src="${formatImagePath('no-image.svg')}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
                     }
                     let detailsHtml = `
                         <div class="card p-3 border-0 product-details-modal-card">
@@ -699,9 +759,12 @@ $(document).ready(function () {
             $("#items").html('<div class="alert alert-danger">Failed to load products.</div>');
         }
     });
-
+});
     // Initial cart count
     updateCartCount();
+
+    // Initial load of products with filters
+    loadProductsWithFilters();
 
     // Cart logic (add to cart, show count, etc.)
     function getCart() {
@@ -711,6 +774,264 @@ $(document).ready(function () {
     function saveCart(cart) {
         localStorage.setItem('cart', JSON.stringify(cart));
     }
+
+// Function to show product details in modal
+function showProductDetails(id) {
+    // Fetch product details (with avg rating, images, etc)
+    $.get(`${API_BASE}/product/${id}`, function (data) {
+        console.log('Product details response:', data); // Debug log
+        let p = data.product;
+        let canReview = data.can_review; // backend should return this
+        let userId = getUserId();
+        let imagesHtml = '';
+        if (p.images && p.images.length) {
+            imagesHtml = `<img src="${formatImagePath(p.images[0].path)}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
+        } else {
+            imagesHtml = `<img src="${formatImagePath('no-image.svg')}" class="img-fluid rounded shadow mb-3" style="max-height:220px;">`;
+        }
+        let detailsHtml = `
+            <div class="card p-3 border-0 product-details-modal-card">
+                <div class="row">
+                    <div class="col-md-5 d-flex align-items-center justify-content-center">${imagesHtml}</div>
+                    <div class="col-md-7 text-left">
+                        <h4 class="mb-1">${p.name}</h4>
+                        <div class="mb-2"><b>Price:</b> <span class="h5 text-success">₱${p.price}</span></div>
+                        <div class="mb-2"><b>Stock:</b> ${p.stock}</div>
+                        <div class="mb-2"><b>Average Rating:</b> <span class="text-warning">${
+                            (typeof p.avg_rating === 'number' && !isNaN(p.avg_rating))
+                                ? '★'.repeat(Math.round(p.avg_rating)) + '☆'.repeat(5 - Math.round(p.avg_rating)) + ` <span class='small text-muted'>${p.avg_rating.toFixed(1)}/5</span>`
+                                : 'N/A'
+                        }</span></div>
+                        <div class="mb-3"><b>Description:</b><br>${p.description ? p.description : '<em>No description available.</em>'}</div>
+                        <div class="mb-3">
+                            <label for="detailsQty"><b>Quantity:</b></label>
+                            <input type="number" class="form-control d-inline-block w-auto ml-2" id="detailsQty" min="1" max="${p.stock}" value="1">
+                            <input type="hidden" id="detailsItemId" value="${id}">
+                            <button type="button" class="btn btn-primary ml-2" id="detailsAddToCart">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="modal-reviews-section" class="mt-4"></div>
+            <div id="modal-add-review-section" class="mt-3"></div>
+        `;
+        
+        if ($('#productDetailsModal').length === 0) {
+            $('body').append(`
+            <div class="modal fade" id="productDetailsModal" tabindex="-1" role="dialog" aria-labelledby="productDetailsModalLabel" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered" role="document">
+                <div class="modal-content">
+                  <div class="modal-header">
+                    <h5 class="modal-title" id="productDetailsModalLabel"></h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                      <span aria-hidden="true">&times;</span>
+                    </button>
+                  </div>
+                  <div class="modal-body text-center" id="productDetailsModalBody">
+                    <!-- Product details will be injected here -->
+                  </div>
+                </div>
+              </div>
+            </div>
+            `);
+        }
+        
+        $('#productDetailsModalLabel').text(p.name);
+        $('#productDetailsModalBody').html(detailsHtml);
+        
+        // Load reviews for this product
+        loadModalReviews(id, canReview);
+        
+        $('#productDetailsModal').modal('show');
+    }).fail(function() {
+        alert('Failed to load product details.');
+    });
+}
+
+// Function to load reviews for modal
+function loadModalReviews(productId, canReview) {
+    $.get(`${API_BASE}/product/${productId}/reviews`, function (data) {
+        let html = '<h5>Reviews</h5>';
+        if (!data.reviews || !data.reviews.length) {
+            html += '<div class="alert alert-info">No reviews yet.</div>';
+        } else {
+            let userId = getUserId();
+            data.reviews.forEach(r => {
+                let canEdit = userId && r.user_id && userId == r.user_id;
+                html += `<div class="card review-card mb-2"><div class="card-body p-2">
+                    <div><b>${r.user_name || 'Anonymous'}</b> <span class="text-warning">${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)}</span></div>
+                    <div>${r.comment}</div>
+                    <div class="text-muted small">${new Date(r.created_at).toLocaleString()}</div>
+                    ${canEdit ? `
+                        <button class="btn btn-sm btn-outline-primary edit-review-btn mt-2" data-review-id="${r.id}" data-product-id="${productId}">Edit</button>
+                        <button class="btn btn-sm btn-outline-danger delete-review-btn mt-2" data-review-id="${r.id}" data-product-id="${productId}">Delete</button>
+                    ` : ''}
+                </div></div>`;
+            });
+        }
+        $('#modal-reviews-section').html(html);
+        
+        // Add review form
+        const token = localStorage.getItem('token');
+        if (token && canReview) {
+            $('#modal-add-review-section').html(`
+                <h6>Add a Review</h6>
+                <form id="modal-review-form">
+                    <div class="form-group mb-2">
+                        <label for="modal-rating">Rating</label>
+                        <select id="modal-rating" class="form-control" required>
+                            <option value="">Select</option>
+                            <option value="5">5 - Excellent</option>
+                            <option value="4">4 - Good</option>
+                            <option value="3">3 - Average</option>
+                            <option value="2">2 - Poor</option>
+                            <option value="1">1 - Terrible</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="modal-comment">Comment</label>
+                        <textarea id="modal-comment" class="form-control" rows="2" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary">Submit Review</button>
+                    <div id="modal-review-message" class="mt-2"></div>
+                </form>
+            `);
+            
+            $('#modal-review-form').on('submit', function (e) {
+                e.preventDefault();
+                const rating = $('#modal-rating').val();
+                const comment = $('#modal-comment').val();
+                if (!rating || !comment) return;
+                
+                $.ajax({
+                    url: `${API_BASE}/product/${productId}/reviews`,
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+                    data: JSON.stringify({ rating, comment }),
+                    success: function () {
+                        $('#modal-review-message').html('<div class="alert alert-success">Review submitted!</div>');
+                        $('#modal-review-form')[0].reset();
+                        loadModalReviews(productId, canReview);
+                    },
+                    error: function (xhr) {
+                        let msg = 'Failed to submit review.';
+                        if (xhr.responseJSON && xhr.responseJSON.error) msg += ' ' + xhr.responseJSON.error;
+                        $('#modal-review-message').html('<div class="alert alert-danger">' + msg + '</div>');
+                    }
+                });
+            });
+        } else if (token && !canReview) {
+            $('#modal-add-review-section').html('<div class="alert alert-info">You can only review this product after your order is <b>completed</b>.</div>');
+        } else {
+            $('#modal-add-review-section').html('<div class="alert alert-info">Log in to add a review.</div>');
+        }
+    });
+}
+
+// --- AUTOCOMPLETE SEARCH ---
+$(document).ready(function() {
+    // Initialize the page
+    loadCategoriesForFilter();
+    loadProductsWithFilters();
+    updateCartCount();
+    
+    // On filter form submit
+    $(document).on('submit', '#product-filter-form', function(e) {
+        e.preventDefault();
+        loadProductsWithFilters();
+    });
+    
+    // On clear filters
+    $(document).on('click', '#clear-filters-btn', function() {
+        $('#product-filter-form')[0].reset();
+        $('.filter-category-checkbox').prop('checked', false);
+        $('#search-box').val('');
+        $('#filter-sort').val('');
+        loadProductsWithFilters();
+    });
+    
+    // Also reload products when a filter checkbox is changed
+    $(document).on('change', '.filter-category-checkbox', function() {
+        loadProductsWithFilters();
+    });
+    
+    // Handle sort dropdown change
+    $('#filter-sort').on('change', function() {
+        loadProductsWithFilters();
+    });
+    
+    // Real-time filtering for price inputs
+    $('#filter-min-price, #filter-max-price').on('input', function() {
+        // Add a small delay to avoid too many requests
+        clearTimeout(window.priceFilterTimeout);
+        window.priceFilterTimeout = setTimeout(function() {
+            loadProductsWithFilters();
+        }, 500);
+    });
+    
+    // Handle search button click
+    $('#search-btn').on('click', function() {
+        const query = $('#search-box').val().trim();
+        if (query.length > 0) {
+            loadProductsWithFilters();
+            $('#search-autocomplete').empty().hide();
+        }
+    });
+    
+    // Handle Enter key in search box
+    $('#search-box').on('keypress', function(e) {
+        if (e.which === 13) {
+            e.preventDefault();
+            const query = $(this).val().trim();
+            if (query.length > 0) {
+                loadProductsWithFilters();
+                $('#search-autocomplete').empty().hide();
+            }
+        }
+    });
+    
+    let searchTimeout;
+    $('#search-box').on('input', function() {
+        clearTimeout(searchTimeout);
+        const query = $(this).val().trim();
+        if (query.length < 2) {
+            $('#search-autocomplete').empty().hide();
+            return;
+        }
+        searchTimeout = setTimeout(() => {
+            $.get(`${API_BASE}/items`, { search: query }, function(data) {
+                let html = '';
+                if (data.products && data.products.length) {
+                    data.products.slice(0, 5).forEach(item => {
+                        html += `<a href="#" class="list-group-item list-group-item-action py-2" data-id="${item.id}">${item.name} <small class="text-muted">₱${item.price}</small></a>`;
+                    });
+                } else {
+                    html = '<div class="list-group-item py-2">No results found</div>';
+                }
+                $('#search-autocomplete').html(html).show();
+            }).fail(function() {
+                $('#search-autocomplete').html('<div class="list-group-item py-2">Error searching</div>').show();
+            });
+        }, 300);
+    });
+    
+    // Hide autocomplete when clicking outside
+    $(document).on('click', function(e) {
+        if (!$(e.target).closest('#search-box, #search-autocomplete').length) {
+            $('#search-autocomplete').empty().hide();
+        }
+    });
+
+    // When an autocomplete item is clicked
+    $(document).on('click', '#search-autocomplete a', function(e) {
+        e.preventDefault();
+        const productId = $(this).data('id');
+        $('#search-box').val($(this).text().split(' ₱')[0]);
+        $('#search-autocomplete').empty().hide();
+        showProductDetails(productId);
+    });
+    
+    // Handle add to cart from details modal
     $(document).on('click', '#detailsAddToCart', function () {
         const qty = parseInt($("#detailsQty").val());
         const id = $("#detailsItemId").val();
@@ -758,58 +1079,4 @@ $(document).ready(function () {
             }
         });
     });
-
-    loadCategoriesForFilter();
-    // On filter form submit
-    $(document).on('submit', '#product-filter-form', function(e) {
-        e.preventDefault();
-        loadProductsWithFilters();
-    });
-    // On clear filters
-    $(document).on('click', '#clear-filters-btn', function() {
-        $('#product-filter-form')[0].reset();
-        $('.filter-category-checkbox').prop('checked', false);
-        loadProductsWithFilters();
-    });
-    // Also reload products when a filter checkbox is changed
-    $(document).on('change', '.filter-category-checkbox', function() {
-        loadProductsWithFilters();
-    });
-});
-
-// --- AUTOCOMPLETE SEARCH ---
-$(document).ready(function() {
-  $('#search-box').on('input', function() {
-    const query = $(this).val().trim();
-    if (query.length < 2) {
-      $('#search-autocomplete').empty().hide();
-      return;
-    }
-    $.get(`${API_BASE}/items/search?q=${encodeURIComponent(query)}`, function(data) {
-      let html = '';
-      if (data && data.items && data.items.length) {
-        data.items.forEach(item => {
-          html += `<a href="product.html?id=${item.id}" class="list-group-item list-group-item-action">${item.name}</a>`;
-        });
-      } else {
-        html = '<div class="list-group-item">No results found</div>';
-      }
-      $('#search-autocomplete').html(html).show();
-    });
-  });
-  // Hide autocomplete when clicking outside
-  $(document).on('click', function(e) {
-    if (!$(e.target).closest('#search-box, #search-autocomplete').length) {
-      $('#search-autocomplete').empty().hide();
-    }
-  });
-  // Optional: handle enter key to go to first result
-  $('#search-box').on('keydown', function(e) {
-    if (e.key === 'Enter') {
-      const first = $('#search-autocomplete a').first();
-      if (first.length) {
-        window.location = first.attr('href');
-      }
-    }
-  });
 });

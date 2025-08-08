@@ -60,7 +60,13 @@ exports.getCartItems = (req, res) => {
     if (!user_id) return res.status(401).json({ error: 'Not logged in' });
     // Join with products and product_images (first image only)
     const sql = `SELECT c.id as cart_id, c.product_id, c.quantity, c.created_at, c.updated_at, p.name, p.price, p.stock,
-                 (SELECT image_path FROM product_images WHERE product_id = p.id LIMIT 1) as image
+                 (SELECT 
+                    CASE 
+                      WHEN image_path LIKE 'http://%' OR image_path LIKE 'https://%' OR image_path LIKE '/%' THEN image_path
+                      WHEN image_path LIKE '%products/%' THEN CONCAT('/images/', image_path)
+                      ELSE CONCAT('/images/products/', image_path)
+                    END
+                  FROM product_images WHERE product_id = p.id LIMIT 1) as image
                  FROM carts c
                  JOIN products p ON c.product_id = p.id
                  WHERE c.user_id = ?`;
@@ -85,6 +91,12 @@ exports.checkout = (req, res) => {
         console.log('Not logged in');
         return res.status(401).json({ error: 'Not logged in' });
     }
+
+    // Import dependencies for PDF/email logic
+    const transporter = require('../utils/mailer');
+    const { generateOrderReceipt } = require('../utils/pdf');
+    const path = require('path');
+    const fs = require('fs');
 
     // Start transaction using the default single connection
     connection.beginTransaction(err => {
@@ -128,22 +140,85 @@ exports.checkout = (req, res) => {
                             if (err) { console.log('Delete cart error:', err); return connection.rollback(() => { res.status(500).json({ error: 'Database error', details: err }); }); }
                             connection.commit(async err => {
                                 if (err) { console.log('Commit error:', err); return res.status(500).json({ error: 'Database error', details: err }); }
-                                // Send receipt email
+                                
+                                // Generate PDF receipt and send email with attachment
                                 try {
                                     const userEmail = cartItems[0].email;
                                     const userName = cartItems[0].user_name;
+                                    
+                                    console.log('Preparing to send email to:', userEmail);
+                                    console.log('Transaction ID:', transaction_id);
+                                    
+                                    // Create transaction object for PDF generation
+                                    const transaction = {
+                                        id: transaction_id,
+                                        created_at: now,
+                                        total_price: total
+                                    };
+                                    
+                                    // Create items array for PDF generation
+                                    const itemsForPdf = cartItems.map(item => ({
+                                        name: item.name,
+                                        quantity: item.quantity,
+                                        price: item.price
+                                    }));
+                                    
+                                    console.log('Items for PDF:', itemsForPdf);
+                                    
+                                    // Generate PDF receipt
+                                    const pdfPath = path.join(__dirname, '../receipts', `receipt_${transaction_id}.pdf`);
+                                    fs.mkdirSync(path.dirname(pdfPath), { recursive: true });
+                                    console.log('Generating PDF receipt at:', pdfPath);
+                                    
+                                    await generateOrderReceipt(transaction, itemsForPdf, { name: userName, email: userEmail }, pdfPath);
+                                    
+                                    // Check if PDF was created
+                                    if (fs.existsSync(pdfPath)) {
+                                        console.log('PDF generated successfully at:', pdfPath);
+                                    } else {
+                                        console.error('PDF was not created at:', pdfPath);
+                                    }
+                                    
+                                    // Create HTML email content
                                     let itemsHtml = cartItems.map(item => `<tr><td>${item.name}</td><td>${item.quantity}</td><td>₱${Number(item.price).toFixed(2)}</td><td>₱${(item.price * item.quantity).toFixed(2)}</td></tr>`).join('');
-                                    const html = `<h3>Thank you for your purchase, ${userName}!</h3><p>Here is your receipt:</p><table border="1" cellpadding="5" cellspacing="0"><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><th colspan="3">Total</th><th>₱${total.toFixed(2)}</th></tr></tfoot></table><p>Status: <b>Pending</b></p>`;
-                                    await transporter.sendMail({
+                                    const html = `<h3>Thank you for your purchase, ${userName}!</h3><p>The PDF of your receipt is attached to this email.</p><table border="1" cellpadding="5" cellspacing="0"><thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Subtotal</th></tr></thead><tbody>${itemsHtml}</tbody><tfoot><tr><th colspan="3">Total</th><th>₱${total.toFixed(2)}</th></tr></tfoot></table><p>Status: <b>Pending</b></p>`;
+                                    
+                                    // Send email with PDF attachment
+                                    const mailOptions = {
                                         from: process.env.EMAIL_USER,
                                         to: userEmail,
-                                        subject: 'Your Hardware Store Receipt',
-                                        html
+                                        subject: `Your Hardware Store Receipt (Transaction #${transaction_id})`,
+                                        html: html,
+                                        attachments: [
+                                            {
+                                                filename: `receipt_${transaction_id}.pdf`,
+                                                path: pdfPath
+                                            }
+                                        ]
+                                    };
+                                    
+                                    console.log('Sending email with options:', {
+                                        to: mailOptions.to,
+                                        subject: mailOptions.subject,
+                                        attachments: mailOptions.attachments.length
                                     });
+                                    
+                                    transporter.sendMail(mailOptions, (err, info) => {
+                                        if (err) {
+                                            console.log('Failed to send receipt email:', err);
+                                            // Don't fail the checkout if email fails
+                                        } else {
+                                            console.log('Receipt email sent:', info);
+                                        }
+                                    });
+                                    
                                 } catch (mailErr) {
-                                    console.error('Failed to send receipt email:', mailErr);
+                                    console.error('Failed to send receipt email with PDF:', mailErr);
+                                    console.error('Error details:', mailErr.message);
+                                    // Don't fail the checkout if email fails
                                 }
-                                res.json({ success: true, message: 'Checkout successful! Receipt sent to your email.', transaction_id, total });
+                                
+                                res.json({ success: true, message: 'Checkout successful! Receipt with PDF attachment sent to your email.', transaction_id, total });
                             });
                         });
                     }).catch(stockErr => {

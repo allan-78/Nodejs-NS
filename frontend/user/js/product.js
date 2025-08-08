@@ -1,6 +1,27 @@
 // product.js: Handles product details, reviews, and review submission
 const API_BASE = window.API_BASE_URL || 'http://localhost:3000/api/v1';
 
+// Format image path to ensure correct URL structure
+function formatImagePath(img) {
+    // If path is null or undefined, return default image
+    if (!img) {
+        return '/images/no-image.png';
+    }
+    
+    // If path already starts with http:// or https:// or /, return as is
+    if (/^https?:\/\//.test(img) || img.startsWith('/')) {
+        return img;
+    }
+    
+    // If path includes 'products/', keep the full path structure
+    if (img.includes('products/')) {
+        return '/images/' + img;
+    } else {
+        // Otherwise, prepend '/images/products/'
+        return '/images/products/' + img;
+    }
+}
+
 $(document).ready(function () {
     // Load navbar
     $("#navbar").load("navbar.html");
@@ -22,7 +43,7 @@ $(document).ready(function () {
         const p = data.product;
         let imagesHtml = '';
         if (p.images && p.images.length) {
-            imagesHtml = `<img src="/${p.images[0]}" class="product-img mb-3">`;
+            imagesHtml = `<img src="${formatImagePath(p.images[0].path)}" class="product-img mb-3">`;
         } else {
             imagesHtml = `<img src="/images/no-image.png" class="product-img mb-3">`;
         }

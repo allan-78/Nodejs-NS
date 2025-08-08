@@ -17,7 +17,7 @@ $(document).ready(function () {
       return;
     }
     $.ajax({
-      url: `${API_BASE}/user/login`,
+      url: `${API_BASE}/users/login`,
       method: 'POST',
       contentType: 'application/json',
       data: JSON.stringify({ email, password }),
